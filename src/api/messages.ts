@@ -59,3 +59,7 @@ export function fetchMessages(
   const suffix = qs.toString() ? `?${qs}` : '';
   return api<Message[]>(`/channels/${channelId}/messages${suffix}`);
 }
+
+export function sendTyping(channelId: string): Promise<void> {
+  return api<void>(`/channels/${channelId}/typing`, { method: 'POST' });
+}

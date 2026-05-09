@@ -5,6 +5,7 @@
     "": {
       "name": "tanstack-router-file-based",
       "dependencies": {
+        "@fluent/bundle": "^0.19.1",
         "@fortawesome/fontawesome-free": "^7.2.0",
         "@tailwindcss/postcss": "^4.1.13",
         "@tanstack/router-plugin": "^1.131.35",
@@ -141,6 +142,8 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.11", "", { "os": "win32", "cpu": "ia32" }, "sha512-3ukss6gb9XZ8TlRyJlgLn17ecsK4NSQTmdIXRASVsiS2sQ6zPPZklNJT5GR5tE/MUarymmy8kCEf5xPCNCqVOA=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.11", "", { "os": "win32", "cpu": "x64" }, "sha512-D7Hpz6A2L4hzsRpPaCYkQnGOotdUpDzSGRIv9I+1ITdHROSFUWW95ZPZWQmGka1Fg7W3zFJowyn9WGwMJ0+KPA=="],
+
+    "@fluent/bundle": ["@fluent/bundle@0.19.1", "", {}, "sha512-SWJLZrPamDPsJlFFOW1nkgN0j0rbPbmSdmK0XAoXlyqKieLtMVl4vzng3aR5pwKoUx0scug8+YY2oct3fdfy9A=="],
 
     "@fortawesome/fontawesome-free": ["@fortawesome/fontawesome-free@7.2.0", "https://npm.fontawesome.com/@fortawesome/fontawesome-free/-/fontawesome-free-7.2.0.tgz", {}, "sha512-3DguDv/oUE+7vjMeTSOjCSG+KeawgVQOHrKRnvUuqYh1mfArrh7s+s8hXW3e4RerBA1+Wh+hBqf8sJNpqNrBWg=="],
 

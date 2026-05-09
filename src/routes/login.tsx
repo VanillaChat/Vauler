@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/solid-router';
 import { createSignal, Show } from 'solid-js';
 import { ApiError } from '../api/client';
 import { login } from '../api/auth';
+import { t } from '../i18n';
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -27,7 +28,7 @@ function LoginPage() {
           ? err.message
           : err instanceof Error
             ? err.message
-            : 'Login failed';
+            : t('login-error-default');
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -42,10 +43,10 @@ function LoginPage() {
             <img src="/VanillaLogo.svg" alt="" class="w-64 mb-8 rounded-lg text-[#2b1d12]" />
           </div>
           <h1 class="font-display text-5xl lg:text-[3.75rem] tracking-tight leading-[1.05] mb-6">
-            Good to see you again.
+            {t('login-headline')}
           </h1>
           <p class="font-sans text-lg leading-relaxed opacity-80">
-            Your servers, your friends, your conversations — right where you left them.
+            {t('login-sub')}
           </p>
         </div>
       </aside>
@@ -53,17 +54,17 @@ function LoginPage() {
       <section class="bg-[#fdfaf3] dark:bg-[#171411] px-8 lg:px-16 py-16 lg:py-24 flex items-center">
         <div class="w-full max-w-sm mx-auto">
           <h2 class="font-display text-4xl tracking-tight text-stone-900 dark:text-stone-100 mb-2">
-            Welcome back.
+            {t('login-title')}
           </h2>
           <p class="font-sans text-sm text-stone-500 dark:text-stone-400 mb-10">
-            Sign in to your account.
+            {t('login-subtitle')}
           </p>
 
           <form onSubmit={onSubmit} class="space-y-4">
             <input
               type="email"
               required
-              placeholder="email"
+              placeholder={t('auth-email')}
               value={email()}
               onInput={(e) => setEmail(e.currentTarget.value)}
               class="w-full rounded-full bg-white dark:bg-white/5 border border-stone-200 dark:border-stone-800 px-5 py-3 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-500 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600"
@@ -71,7 +72,7 @@ function LoginPage() {
             <input
               type="password"
               required
-              placeholder="password"
+              placeholder={t('auth-password')}
               value={password()}
               onInput={(e) => setPassword(e.currentTarget.value)}
               class="w-full rounded-full bg-white dark:bg-white/5 border border-stone-200 dark:border-stone-800 px-5 py-3 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-500 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600"
@@ -86,20 +87,20 @@ function LoginPage() {
               disabled={submitting()}
               class="w-full bg-vault text-stone-900 px-6 py-3 rounded-full text-sm font-medium hover:shadow-md hover:shadow-vault/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {submitting() ? 'Signing in…' : 'Sign in'}
+              {submitting() ? t('login-submitting') : t('login-submit')}
             </button>
           </form>
 
           <p class="mt-6 text-center text-sm text-stone-500 dark:text-stone-400">
             <Link to="/reset-password" class="hover:text-stone-900 dark:hover:text-white underline underline-offset-4">
-              Forgot password?
+              {t('login-forgot')}
             </Link>
           </p>
 
           <p class="mt-8 text-center text-sm text-stone-500 dark:text-stone-400">
-            New here?{' '}
+            {t('login-new-here')}{' '}
             <Link to="/register" class="text-stone-900 dark:text-white underline underline-offset-4">
-              Create an account
+              {t('login-create-account')}
             </Link>
           </p>
         </div>

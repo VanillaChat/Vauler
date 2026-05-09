@@ -4,3 +4,8 @@ declare const process: {
     GATEWAY_URL: string;
   };
 };
+
+declare module '*.ftl?raw' {
+  const content: string;
+  export default content;
+}

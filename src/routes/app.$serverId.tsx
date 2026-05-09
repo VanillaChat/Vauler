@@ -69,17 +69,21 @@ function ServerLayout() {
           </span>
         </div>
         <div class="flex-1 overflow-y-auto px-3 py-1">
-          <MemberGroup
-            label="online"
-            items={onlineMembers()}
-            onSelect={profile.open}
-          />
-          <MemberGroup
-            label="offline"
-            items={offlineMembers()}
-            muted
-            onSelect={profile.open}
-          />
+          <Show when={onlineMembers().length > 0}>
+            <MemberGroup
+              label="online"
+              items={onlineMembers()}
+              onSelect={profile.open}
+            />
+          </Show>
+          <Show when={offlineMembers().length > 0}>
+            <MemberGroup
+              label="offline"
+              items={offlineMembers()}
+              muted
+              onSelect={profile.open}
+            />
+          </Show>
         </div>
       </aside>
     </>

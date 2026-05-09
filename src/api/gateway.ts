@@ -1,6 +1,7 @@
 import { createSignal } from 'solid-js';
 import type { Message } from './messages';
 import { addMessage } from '../state/messages';
+import { addTyping } from '../state/typing';
 
 export const OP_DISPATCH = 0;
 export const OP_HEARTBEAT = 1;
@@ -330,6 +331,28 @@ function handleMessage(msg: GatewayMessage) {
 
   if (msg.op === OP_DISPATCH && msg.t === 'MESSAGE_CREATE') {
     addMessage(msg.d as Message);
+    return;
+  }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'TYPING_START') {
+    const d = msg.d as
+      | {
+          channelId: string;
+          userId: string;
+          expiresAt: number;
+          user?: {
+            username?: string;
+            member?: { nickname: string | null } | null;
+          };
+        }
+      | undefined;
+    if (!d?.channelId || !d?.userId) return;
+    if (d.userId === readyData()?.user?.id) return;
+    addTyping(d.channelId, {
+      userId: d.userId,
+      username: d.user?.member?.nickname ?? d.user?.username ?? 'someone',
+      expiresAt: d.expiresAt ?? Date.now() + 10_000,
+    });
     return;
   }
 }

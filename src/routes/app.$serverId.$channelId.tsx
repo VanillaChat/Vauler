@@ -3,7 +3,7 @@ import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { ApiError } from '../api/client';
 import type { GatewayUser } from '../api/gateway';
 import { createChannelInvite } from '../api/invites';
-import { createMessage, fetchMessages } from '../api/messages';
+import { createMessage, fetchMessages, sendTyping } from '../api/messages';
 import { Avatar } from '../components/Avatar';
 import { useProfile } from '../contexts/profile';
 import { compactMode, useChannel, userPresence } from '../state/gateway-data';
@@ -17,6 +17,7 @@ import {
   prependMessages,
   setChannelMessages,
 } from '../state/messages';
+import { typingStore } from '../state/typing';
 
 export const Route = createFileRoute('/app/$serverId/$channelId')({
   component: ChannelView,
@@ -31,6 +32,16 @@ function ChannelView() {
     return [...list].sort(
       (a, b) => Number(new Date(a.createdAt)) - Number(new Date(b.createdAt)),
     );
+  });
+  const typing = createMemo(() => typingStore()[params().channelId] ?? []);
+  const typingText = createMemo(() => {
+    const list = typing();
+    if (list.length === 0) return null;
+    if (list.length === 1) return `${list[0].username} is typing`;
+    if (list.length === 2) return `${list[0].username} and ${list[1].username} are typing`;
+    if (list.length === 3)
+      return `${list[0].username}, ${list[1].username}, and ${list[2].username} are typing`;
+    return 'several people are typing';
   });
   const [draft, setDraft] = createSignal('');
   const [loadingHistory, setLoadingHistory] = createSignal(false);
@@ -152,6 +163,17 @@ function ChannelView() {
   const [lastMsgId, setLastMsgId] = createSignal<string>('');
   const [sending, setSending] = createSignal(false);
   const [sendError, setSendError] = createSignal<string | null>(null);
+  let lastTypingAt = 0;
+
+  const onDraftInput = (value: string) => {
+    setDraft(value);
+    if (!value.trim()) return;
+    const now = Date.now();
+    if (now - lastTypingAt >= 1000) {
+      lastTypingAt = now;
+      sendTyping(params().channelId).catch(() => {});
+    }
+  };
 
   const onSend = async (e: Event) => {
     e.preventDefault();
@@ -350,6 +372,17 @@ function ChannelView() {
         </Show>
       </div>
 
+      <Show when={typingText()}>
+        <div class="px-6 pt-1 pb-0.5 text-xs text-stone-500 italic font-display flex items-center gap-2">
+          <span class="inline-flex gap-0.5">
+            <span class="typing-dot" />
+            <span class="typing-dot" />
+            <span class="typing-dot" />
+          </span>
+          <span>{typingText()}…</span>
+        </div>
+      </Show>
+
       <Show when={sendError()}>
         <div class="px-6 py-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
           <span>{sendError()}</span>
@@ -363,38 +396,46 @@ function ChannelView() {
       </Show>
 
       <form onSubmit={onSend} class="px-6 pb-5 pt-2 shrink-0">
-        <div class="flex items-center gap-2 rounded-2xl bg-[#fdfaf3] dark:bg-stone-900 px-4 py-3 focus-within:bg-white dark:focus-within:bg-stone-800 transition-colors shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] focus-within:shadow-[inset_0_0_0_1.5px_#f7e26c]">
+        <div class="flex items-stretch gap-2 rounded-2xl bg-[#fdfaf3] dark:bg-stone-900 px-3 py-2 focus-within:bg-white dark:focus-within:bg-stone-800 transition-colors shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] focus-within:shadow-[inset_0_0_0_1.5px_#f7e26c]">
           <button
             type="button"
-            class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-1"
+            class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 self-start mt-2"
             title="Attach"
           >
             <i class="fa-solid fa-paperclip" />
           </button>
-          <input
-            type="text"
+          <textarea
             placeholder={`message ${channel()?.name ?? ''}…`}
             value={draft()}
-            onInput={(e) => setDraft(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) onSend(e);
+            rows={1}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = 'auto';
+              el.style.height = Math.min(200, el.scrollHeight) + 'px';
+              onDraftInput(el.value);
             }}
-            class="flex-1 bg-transparent outline-none text-sm placeholder:text-stone-400 placeholder:italic placeholder:font-display"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                onSend(e);
+              }
+            }}
+            class="flex-1 bg-transparent outline-none text-sm placeholder:text-stone-400 placeholder:italic placeholder:font-display resize-none py-2 leading-relaxed"
           />
           <button
             type="button"
-            class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-1"
+            class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 self-start mt-2"
             title="Emoji"
           >
             <i class="fa-regular fa-face-smile" />
           </button>
           <button
             type="submit"
-            class="px-3.5 py-1.5 rounded-xl bg-[#f7e26c] text-stone-900 text-xs font-medium hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow disabled:opacity-50 disabled:hover:shadow-none flex items-center gap-1.5"
+            class="self-end w-9 h-9 rounded-xl bg-[#f7e26c] text-stone-900 hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow disabled:opacity-50 disabled:hover:shadow-none flex items-center justify-center shrink-0"
             disabled={!draft().trim() || sending()}
+            title="Send"
           >
-            <i class="fa-solid fa-paper-plane text-[0.7rem]" />
-            {sending() ? 'sending' : 'Send'}
+            <i class={sending() ? 'fa-solid fa-spinner fa-spin text-xs' : 'fa-solid fa-paper-plane text-xs'} />
           </button>
         </div>
       </form>

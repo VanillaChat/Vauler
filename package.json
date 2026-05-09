@@ -9,6 +9,7 @@
     "start": "vite"
   },
   "dependencies": {
+    "@fluent/bundle": "^0.19.1",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@tanstack/router-plugin": "^1.131.35",
