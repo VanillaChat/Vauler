@@ -58,3 +58,9 @@ export function colorForId(id: string): string {
 export function isOnline(s: UserStatus): boolean {
   return s !== 'UNAVAILABLE';
 }
+
+export function userPresence(userId: string): UserStatus | undefined {
+  return ready()?.presences?.find((p) => p.userId === userId)?.status;
+}
+
+export const compactMode = () => ready()?.settings?.compactMode ?? false;

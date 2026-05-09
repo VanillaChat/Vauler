@@ -11,6 +11,7 @@ const inputClass =
 export function ServerModal(props: {
   onClose: () => void;
   onCreated?: (id: string) => void;
+  closing?: boolean;
 }) {
   const [tab, setTab] = createSignal<Tab>('create');
   const [name, setName] = createSignal('');
@@ -61,11 +62,17 @@ export function ServerModal(props: {
   return (
     <>
       <div
-        class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm animate-fade-in"
+        class={`fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm ${
+          props.closing ? 'animate-fade-out' : 'animate-fade-in'
+        }`}
         onClick={props.onClose}
       />
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div class="pointer-events-auto w-full max-w-md rounded-3xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden animate-popover-in">
+        <div
+          class={`pointer-events-auto w-full max-w-md rounded-3xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden ${
+            props.closing ? 'animate-popover-out' : 'animate-popover-in'
+          }`}
+        >
           <div class="px-6 pt-6 pb-4 border-b border-stone-100 dark:border-stone-800">
             <h2 class="font-display text-3xl">a new server</h2>
             <p class="text-sm text-stone-500 italic font-display mt-1">

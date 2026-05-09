@@ -145,7 +145,7 @@ function MemberGroup(props: {
               class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm hover:bg-stone-100 dark:hover:bg-stone-800/40 cursor-pointer transition-colors text-left"
               classList={{ 'opacity-50': props.muted }}
             >
-              <Avatar user={u} size={30} ringColor="#f5efe1" />
+              <Avatar user={u} size={30} />
               <div class="flex-1 min-w-0">
                 <div class="truncate">{u.nickname ?? u.username}</div>
                 <Show when={u.bio}>

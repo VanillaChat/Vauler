@@ -1,4 +1,6 @@
 import { createSignal } from 'solid-js';
+import type { Message } from './messages';
+import { addMessage } from '../state/messages';
 
 export const OP_DISPATCH = 0;
 export const OP_HEARTBEAT = 1;
@@ -325,6 +327,11 @@ function handleMessage(msg: GatewayMessage) {
     if (d?.userId && d?.status) applyPresence(d.userId, d.status);
     return;
   }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'MESSAGE_CREATE') {
+    addMessage(msg.d as Message);
+    return;
+  }
 }
 
 function sendHeartbeat() {
@@ -360,7 +367,7 @@ export function updatePresence(status: UserStatus) {
   send({ op: OP_PRESENCE_UPDATE, d: { status } });
   const r = readyData();
   if (r?.user) {
-    setReadyData({ ...r, user: { ...r.user, status } });
+    applyPresence(r.user.id, status);
   }
 }
 

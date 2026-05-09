@@ -49,10 +49,45 @@ function AppLayout() {
   const [profileUser, setProfileUser] = createSignal<GatewayUser | null>(null);
   const [profilePos, setProfilePos] = createSignal({ x: 0, y: 0 });
   const [profileOrigin, setProfileOrigin] = createSignal('top left');
+  const [profileClosing, setProfileClosing] = createSignal(false);
   const [statusPickerOpen, setStatusPickerOpen] = createSignal(false);
   const [serverModalOpen, setServerModalOpen] = createSignal(false);
+  const [serverModalClosing, setServerModalClosing] = createSignal(false);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
+  const [settingsClosing, setSettingsClosing] = createSignal(false);
   let popoverEl: HTMLDivElement | undefined;
+
+  const ANIM_MS = 130;
+  let profileCloseTimer: number | null = null;
+
+  const closeProfile = () => {
+    if (!profileUser() || profileClosing()) return;
+    setStatusPickerOpen(false);
+    setProfileClosing(true);
+    profileCloseTimer = window.setTimeout(() => {
+      setProfileUser(null);
+      setProfileClosing(false);
+      profileCloseTimer = null;
+    }, ANIM_MS);
+  };
+
+  const closeServerModal = () => {
+    if (!serverModalOpen() || serverModalClosing()) return;
+    setServerModalClosing(true);
+    setTimeout(() => {
+      setServerModalOpen(false);
+      setServerModalClosing(false);
+    }, ANIM_MS);
+  };
+
+  const closeSettings = () => {
+    if (!settingsOpen() || settingsClosing()) return;
+    setSettingsClosing(true);
+    setTimeout(() => {
+      setSettingsOpen(false);
+      setSettingsClosing(false);
+    }, ANIM_MS);
+  };
 
   const openProfile = (
     user: GatewayUser,
@@ -115,6 +150,11 @@ function AppLayout() {
     x = Math.max(8, Math.min(x, window.innerWidth - W - 8));
     y = Math.max(8, Math.min(y, window.innerHeight - H - 8));
 
+    if (profileCloseTimer !== null) {
+      clearTimeout(profileCloseTimer);
+      profileCloseTimer = null;
+    }
+    setProfileClosing(false);
     setProfilePos({ x, y });
     setProfileOrigin(`${originY} ${originX}`);
     setStatusPickerOpen(false);
@@ -141,10 +181,10 @@ function AppLayout() {
   });
 
   createEffect(() => {
-    if (!profileUser()) return;
+    if (!profileUser() || profileClosing()) return;
     const handler = (e: MouseEvent) => {
       if (popoverEl && !popoverEl.contains(e.target as Node)) {
-        setProfileUser(null);
+        closeProfile();
       }
     };
     document.addEventListener('mousedown', handler);
@@ -166,7 +206,15 @@ function AppLayout() {
   };
 
   return (
-    <ProfileContext.Provider value={{ open: openProfile, openSettings: () => setSettingsOpen(true) }}>
+    <ProfileContext.Provider
+      value={{
+        open: openProfile,
+        openSettings: () => {
+          setSettingsClosing(false);
+          setSettingsOpen(true);
+        },
+      }}
+    >
       <div class="h-screen flex bg-[#fdfaf3] dark:bg-[#1a1816] text-stone-800 dark:text-stone-100 overflow-hidden">
         <nav class="w-[80px] shrink-0 flex flex-col items-center py-5">
           <Link to="/" class="block w-10 h-10 mb-1" aria-label="home">
@@ -227,10 +275,13 @@ function AppLayout() {
                   onClick={(e) => openProfile(self(), e, true)}
                   title={`${self().username}/${self().tag}`}
                 >
-                  <Avatar user={self()} size={40} ringColor="#fdfaf3" />
+                  <Avatar user={self()} size={40} />
                 </button>
                 <button
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={() => {
+                    setSettingsClosing(false);
+                    setSettingsOpen(true);
+                  }}
                   class="w-9 h-9 rounded-xl text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 flex items-center justify-center transition-colors"
                   title="Settings"
                 >
@@ -243,9 +294,10 @@ function AppLayout() {
 
         <Outlet />
 
-        <Show when={serverModalOpen()}>
+        <Show when={serverModalOpen() || serverModalClosing()}>
           <ServerModal
-            onClose={() => setServerModalOpen(false)}
+            closing={serverModalClosing()}
+            onClose={closeServerModal}
             onCreated={(id) =>
               navigate({
                 to: '/app/$serverId',
@@ -256,15 +308,17 @@ function AppLayout() {
           />
         </Show>
 
-        <Show when={settingsOpen()}>
-          <SettingsModal onClose={() => setSettingsOpen(false)} />
+        <Show when={settingsOpen() || settingsClosing()}>
+          <SettingsModal closing={settingsClosing()} onClose={closeSettings} />
         </Show>
 
         <Show when={liveProfileUser()}>
           {(u) => (
             <div
               ref={popoverEl}
-              class="fixed z-50 w-72 rounded-2xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden border border-stone-200 dark:border-stone-800 animate-popover-in"
+              class={`fixed z-50 w-72 rounded-2xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden border border-stone-200 dark:border-stone-800 ${
+                profileClosing() ? 'animate-popover-out' : 'animate-popover-in'
+              }`}
               style={{
                 left: `${profilePos().x}px`,
                 top: `${profilePos().y}px`,

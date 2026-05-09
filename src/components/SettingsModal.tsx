@@ -18,7 +18,7 @@ const SECTIONS: SectionDef[] = [
 const inputClass =
   'w-full rounded-xl bg-[#fdfaf3] dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-4 py-2.5 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-600 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600';
 
-export function SettingsModal(props: { onClose: () => void }) {
+export function SettingsModal(props: { onClose: () => void; closing?: boolean }) {
   const [section, setSection] = createSignal<Section>('account');
   const navigate = useNavigate();
 
@@ -76,38 +76,50 @@ export function SettingsModal(props: { onClose: () => void }) {
   };
 
   return (
-    <div class="fixed inset-0 z-50 bg-[#fdfaf3] dark:bg-[#1a1816] flex animate-fade-in">
-      <aside class="w-64 shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col px-3 py-6 gap-1 border-r border-stone-200 dark:border-stone-800">
-        <div class="px-3 mb-3">
-          <h2 class="font-display text-2xl">settings</h2>
-        </div>
-        <For each={SECTIONS}>
-          {(s) => (
-            <button
-              onClick={() => setSection(s.id)}
-              class={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-left ${
-                section() === s.id
-                  ? 'bg-[#f7e26c] text-stone-900 font-medium'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/40 hover:text-stone-900 dark:hover:text-stone-100'
-              }`}
-            >
-              <i class={`fa-solid ${s.icon} w-4 text-center text-xs opacity-70`} />
-              <span>{s.label}</span>
-            </button>
-          )}
-        </For>
-      </aside>
-
-      <main class="flex-1 min-w-0 overflow-y-auto relative">
-        <button
-          onClick={props.onClose}
-          class="absolute top-5 right-6 w-10 h-10 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center"
-          title="Close (esc)"
+    <>
+      <div
+        class={`fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm ${
+          props.closing ? 'animate-fade-out' : 'animate-fade-in'
+        }`}
+        onClick={props.onClose}
+      />
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none">
+        <div
+          class={`pointer-events-auto w-full max-w-4xl h-[80vh] rounded-3xl bg-[#fdfaf3] dark:bg-[#1a1816] shadow-2xl shadow-black/20 overflow-hidden flex ${
+            props.closing ? 'animate-popover-out' : 'animate-popover-in'
+          }`}
         >
-          <i class="fa-solid fa-xmark" />
-        </button>
+          <aside class="w-56 shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col px-3 py-5 gap-1 border-r border-stone-200 dark:border-stone-800">
+            <div class="px-3 mb-3">
+              <h2 class="font-display text-2xl">settings</h2>
+            </div>
+            <For each={SECTIONS}>
+              {(s) => (
+                <button
+                  onClick={() => setSection(s.id)}
+                  class={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-left ${
+                    section() === s.id
+                      ? 'bg-[#f7e26c] text-stone-900 font-medium'
+                      : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/40 hover:text-stone-900 dark:hover:text-stone-100'
+                  }`}
+                >
+                  <i class={`fa-solid ${s.icon} w-4 text-center text-xs opacity-70`} />
+                  <span>{s.label}</span>
+                </button>
+              )}
+            </For>
+          </aside>
 
-        <div class="max-w-2xl mx-auto px-10 py-12">
+          <main class="flex-1 min-w-0 overflow-y-auto relative">
+            <button
+              onClick={props.onClose}
+              class="absolute top-4 right-5 w-9 h-9 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center z-10"
+              title="Close (esc)"
+            >
+              <i class="fa-solid fa-xmark" />
+            </button>
+
+            <div class="max-w-2xl mx-auto px-8 py-10">
           <Show when={section() === 'account'}>
             <h3 class="font-display text-3xl mb-1">account</h3>
             <p class="text-sm text-stone-500 italic font-display mb-8">
@@ -252,9 +264,11 @@ export function SettingsModal(props: { onClose: () => void }) {
               <div class="mt-4 text-sm text-red-600 dark:text-red-400">{err()}</div>
             </Show>
           </Show>
+            </div>
+          </main>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
 
