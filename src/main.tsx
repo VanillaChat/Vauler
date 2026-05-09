@@ -3,13 +3,13 @@ import 'solid-devtools';
 import { RouterProvider, createRouter } from '@tanstack/solid-router';
 import { routeTree } from './routeTree.gen';
 import './styles.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 // Set up a Router instance
 const router = createRouter({
   routeTree,
-  defaultPreload: 'intent',
   defaultStaleTime: 5000,
-  scrollRestoration: true,
+  scrollRestoration: true
 });
 
 // Register things for typesafety

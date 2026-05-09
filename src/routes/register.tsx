@@ -1,19 +1,56 @@
-import { createFileRoute, Link } from '@tanstack/solid-router';
-import { createSignal } from 'solid-js';
+import { createFileRoute, Link, useNavigate } from '@tanstack/solid-router';
+import { createSignal, Show } from 'solid-js';
+import { ApiError } from '../api/client';
+import { register } from '../api/auth';
 
 export const Route = createFileRoute('/register')({
   component: RegisterPage,
 });
 
 function RegisterPage() {
+  const navigate = useNavigate();
   const [username, setUsername] = createSignal('');
   const [email, setEmail] = createSignal('');
   const [password, setPassword] = createSignal('');
+  const [confirmPassword, setConfirmPassword] = createSignal('');
+  const [inviteCode, setInviteCode] = createSignal('');
+  const [error, setError] = createSignal<string | null>(null);
+  const [submitting, setSubmitting] = createSignal(false);
 
-  const onSubmit = (e: Event) => {
+  const onSubmit = async (e: Event) => {
     e.preventDefault();
-    console.log('register', { username: username(), email: email(), password: password() });
+    setError(null);
+
+    if (password() !== confirmPassword()) {
+      setError("Passwords don't match");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await register({
+        email: email(),
+        password: password(),
+        confirmPassword: confirmPassword(),
+        username: username(),
+        inviteCode: inviteCode().trim() || undefined,
+      });
+      navigate({ to: '/app' });
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Registration failed';
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const inputClass =
+    'w-full rounded-full bg-white dark:bg-white/5 border border-stone-200 dark:border-stone-800 px-5 py-3 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-500 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600';
 
   return (
     <div class="-mt-24 grid lg:grid-cols-2 min-h-screen">
@@ -47,7 +84,7 @@ function RegisterPage() {
               placeholder="username"
               value={username()}
               onInput={(e) => setUsername(e.currentTarget.value)}
-              class="w-full rounded-full bg-white dark:bg-white/5 border border-stone-200 dark:border-stone-800 px-5 py-3 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-500 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600"
+              class={inputClass}
             />
             <input
               type="email"
@@ -55,7 +92,7 @@ function RegisterPage() {
               placeholder="email"
               value={email()}
               onInput={(e) => setEmail(e.currentTarget.value)}
-              class="w-full rounded-full bg-white dark:bg-white/5 border border-stone-200 dark:border-stone-800 px-5 py-3 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-500 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600"
+              class={inputClass}
             />
             <input
               type="password"
@@ -64,14 +101,35 @@ function RegisterPage() {
               placeholder="password"
               value={password()}
               onInput={(e) => setPassword(e.currentTarget.value)}
-              class="w-full rounded-full bg-white dark:bg-white/5 border border-stone-200 dark:border-stone-800 px-5 py-3 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-500 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600"
+              class={inputClass}
             />
+            <input
+              type="password"
+              required
+              minLength={8}
+              placeholder="confirm password"
+              value={confirmPassword()}
+              onInput={(e) => setConfirmPassword(e.currentTarget.value)}
+              class={inputClass}
+            />
+            <input
+              type="text"
+              placeholder="invite code (optional)"
+              value={inviteCode()}
+              onInput={(e) => setInviteCode(e.currentTarget.value)}
+              class={inputClass}
+            />
+
+            <Show when={error()}>
+              <div class="text-sm text-red-600 dark:text-red-400 px-2">{error()}</div>
+            </Show>
 
             <button
               type="submit"
-              class="w-full bg-vault text-stone-900 px-6 py-3 rounded-full text-sm font-medium hover:shadow-md hover:shadow-vault/40 transition-shadow"
+              disabled={submitting()}
+              class="w-full bg-vault text-stone-900 px-6 py-3 rounded-full text-sm font-medium hover:shadow-md hover:shadow-vault/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Create account
+              {submitting() ? 'Creating…' : 'Create account'}
             </button>
           </form>
 

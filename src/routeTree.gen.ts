@@ -9,10 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppServerIdRouteImport } from './routes/app.$serverId'
+import { Route as AppServerIdIndexRouteImport } from './routes/app.$serverId.index'
+import { Route as AppServerIdChannelIdRouteImport } from './routes/app.$serverId.$channelId'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -23,44 +34,120 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServerIdRoute = AppServerIdRouteImport.update({
+  id: '/$serverId',
+  path: '/$serverId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServerIdIndexRoute = AppServerIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppServerIdRoute,
+} as any)
+const AppServerIdChannelIdRoute = AppServerIdChannelIdRouteImport.update({
+  id: '/$channelId',
+  path: '/$channelId',
+  getParentRoute: () => AppServerIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/app/$serverId': typeof AppServerIdRouteWithChildren
+  '/app/': typeof AppIndexRoute
+  '/app/$serverId/$channelId': typeof AppServerIdChannelIdRoute
+  '/app/$serverId/': typeof AppServerIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/app': typeof AppIndexRoute
+  '/app/$serverId/$channelId': typeof AppServerIdChannelIdRoute
+  '/app/$serverId': typeof AppServerIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/app/$serverId': typeof AppServerIdRouteWithChildren
+  '/app/': typeof AppIndexRoute
+  '/app/$serverId/$channelId': typeof AppServerIdChannelIdRoute
+  '/app/$serverId/': typeof AppServerIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/login'
+    | '/register'
+    | '/reset-password'
+    | '/app/$serverId'
+    | '/app/'
+    | '/app/$serverId/$channelId'
+    | '/app/$serverId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register'
-  id: '__root__' | '/' | '/login' | '/register'
+  to:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/reset-password'
+    | '/app'
+    | '/app/$serverId/$channelId'
+    | '/app/$serverId'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/login'
+    | '/register'
+    | '/reset-password'
+    | '/app/$serverId'
+    | '/app/'
+    | '/app/$serverId/$channelId'
+    | '/app/$serverId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/solid-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -75,6 +162,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -82,13 +176,69 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/$serverId': {
+      id: '/app/$serverId'
+      path: '/$serverId'
+      fullPath: '/app/$serverId'
+      preLoaderRoute: typeof AppServerIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/$serverId/': {
+      id: '/app/$serverId/'
+      path: '/'
+      fullPath: '/app/$serverId/'
+      preLoaderRoute: typeof AppServerIdIndexRouteImport
+      parentRoute: typeof AppServerIdRoute
+    }
+    '/app/$serverId/$channelId': {
+      id: '/app/$serverId/$channelId'
+      path: '/$channelId'
+      fullPath: '/app/$serverId/$channelId'
+      preLoaderRoute: typeof AppServerIdChannelIdRouteImport
+      parentRoute: typeof AppServerIdRoute
+    }
   }
 }
 
+interface AppServerIdRouteChildren {
+  AppServerIdChannelIdRoute: typeof AppServerIdChannelIdRoute
+  AppServerIdIndexRoute: typeof AppServerIdIndexRoute
+}
+
+const AppServerIdRouteChildren: AppServerIdRouteChildren = {
+  AppServerIdChannelIdRoute: AppServerIdChannelIdRoute,
+  AppServerIdIndexRoute: AppServerIdIndexRoute,
+}
+
+const AppServerIdRouteWithChildren = AppServerIdRoute._addFileChildren(
+  AppServerIdRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppServerIdRoute: typeof AppServerIdRouteWithChildren
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppServerIdRoute: AppServerIdRouteWithChildren,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
