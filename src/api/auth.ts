@@ -38,3 +38,7 @@ export function login(payload: LoginRequest): Promise<LoginResponse> {
     json: payload,
   });
 }
+
+export function logout(): Promise<void> {
+  return api<void>('/auth/logout', { method: 'POST' });
+}

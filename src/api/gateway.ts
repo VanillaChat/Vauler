@@ -3,6 +3,7 @@ import { createSignal } from 'solid-js';
 export const OP_DISPATCH = 0;
 export const OP_HEARTBEAT = 1;
 export const OP_IDENTIFY = 2;
+export const OP_PRESENCE_UPDATE = 3;
 export const OP_HELLO = 10;
 export const OP_HEARTBEAT_ACK = 11;
 
@@ -90,11 +91,42 @@ export type GatewayMessage = {
 
 export type GatewayState = 'disconnected' | 'connecting' | 'connected' | 'ready';
 
-const [state, setState] = createSignal<GatewayState>('disconnected');
-const [readyData, setReadyData] = createSignal<ReadyPayload | null>(null);
+type Persisted = {
+  ws: WebSocket | null;
+  heartbeatTimer: number | null;
+  readyData: ReadyPayload | null;
+  state: GatewayState;
+};
 
-let ws: WebSocket | null = null;
-let heartbeatTimer: number | null = null;
+const g = globalThis as { __vanillaGateway?: Persisted };
+const persisted: Persisted = (g.__vanillaGateway ??= {
+  ws: null,
+  heartbeatTimer: null,
+  readyData: null,
+  state: 'disconnected',
+});
+
+const initialState: GatewayState =
+  persisted.ws?.readyState === WebSocket.OPEN
+    ? persisted.readyData
+      ? 'ready'
+      : 'connected'
+    : persisted.ws?.readyState === WebSocket.CONNECTING
+      ? 'connecting'
+      : 'disconnected';
+
+const [state, _setState] = createSignal<GatewayState>(initialState);
+const [readyData, _setReadyData] = createSignal<ReadyPayload | null>(persisted.readyData);
+
+const setState = (v: GatewayState) => {
+  persisted.state = v;
+  _setState(v);
+};
+const setReadyData = (v: ReadyPayload | null) => {
+  persisted.readyData = v;
+  _setReadyData(v);
+};
+
 const handlers = new Set<(msg: GatewayMessage) => void>();
 
 export const gatewayState = state;
@@ -160,6 +192,19 @@ export function removeGuildMember(guildId: string, userId: string) {
   setReadyData({ ...r, guilds: newGuilds });
 }
 
+export function applyPresence(userId: string, status: UserStatus) {
+  const r = readyData();
+  if (!r) return;
+  const presences = r.presences ?? [];
+  const idx = presences.findIndex((p) => p.userId === userId);
+  const next =
+    idx === -1
+      ? [...presences, { userId, status }]
+      : presences.map((p) => (p.userId === userId ? { ...p, status } : p));
+  const user = r.user?.id === userId ? { ...r.user, status } : r.user;
+  setReadyData({ ...r, presences: next, user });
+}
+
 function resolveGatewayUrl(): string {
   const url = process.env.GATEWAY_URL;
   if (url.startsWith('ws://') || url.startsWith('wss://')) return url;
@@ -167,22 +212,16 @@ function resolveGatewayUrl(): string {
   return `${proto}//${window.location.host}${url}`;
 }
 
-export function connect() {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
-  setState('connecting');
-  ws = new WebSocket(resolveGatewayUrl());
-
-  ws.onopen = () => setState('connected');
-  ws.onclose = () => {
+function attachHandlers(socket: WebSocket) {
+  socket.onopen = () => setState('connected');
+  socket.onclose = () => {
     clearHeartbeat();
     setReadyData(null);
     setState('disconnected');
-    ws = null;
+    persisted.ws = null;
   };
-  ws.onerror = () => {};
-  ws.onmessage = (e) => {
+  socket.onerror = () => {};
+  socket.onmessage = (e) => {
     let msg: GatewayMessage;
     try {
       msg = JSON.parse(e.data);
@@ -194,6 +233,29 @@ export function connect() {
   };
 }
 
+// Re-attach handlers on hot reload if WS already exists
+if (
+  persisted.ws &&
+  (persisted.ws.readyState === WebSocket.OPEN ||
+    persisted.ws.readyState === WebSocket.CONNECTING)
+) {
+  attachHandlers(persisted.ws);
+}
+
+export function connect() {
+  const existing = persisted.ws;
+  if (
+    existing &&
+    (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
+  ) {
+    return;
+  }
+  setState('connecting');
+  const socket = new WebSocket(resolveGatewayUrl());
+  persisted.ws = socket;
+  attachHandlers(socket);
+}
+
 function handleMessage(msg: GatewayMessage) {
   if (msg.op === OP_HELLO) {
     const interval =
@@ -201,7 +263,7 @@ function handleMessage(msg: GatewayMessage) {
     sendIdentify();
     sendHeartbeat();
     clearHeartbeat();
-    heartbeatTimer = window.setInterval(sendHeartbeat, interval);
+    persisted.heartbeatTimer = window.setInterval(sendHeartbeat, interval);
     return;
   }
 
@@ -257,6 +319,12 @@ function handleMessage(msg: GatewayMessage) {
     if (d?.guildId && d?.userId) removeGuildMember(d.guildId, d.userId);
     return;
   }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'PRESENCE_UPDATE') {
+    const d = msg.d as { userId?: string; status?: UserStatus } | undefined;
+    if (d?.userId && d?.status) applyPresence(d.userId, d.status);
+    return;
+  }
 }
 
 function sendHeartbeat() {
@@ -268,23 +336,31 @@ function sendIdentify() {
 }
 
 function clearHeartbeat() {
-  if (heartbeatTimer !== null) {
-    clearInterval(heartbeatTimer);
-    heartbeatTimer = null;
+  if (persisted.heartbeatTimer !== null) {
+    clearInterval(persisted.heartbeatTimer);
+    persisted.heartbeatTimer = null;
   }
 }
 
 export function disconnect() {
   clearHeartbeat();
-  ws?.close();
-  ws = null;
+  persisted.ws?.close();
+  persisted.ws = null;
   setReadyData(null);
   setState('disconnected');
 }
 
 export function send(payload: unknown) {
-  if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(payload));
+  if (persisted.ws?.readyState === WebSocket.OPEN) {
+    persisted.ws.send(JSON.stringify(payload));
+  }
+}
+
+export function updatePresence(status: UserStatus) {
+  send({ op: OP_PRESENCE_UPDATE, d: { status } });
+  const r = readyData();
+  if (r?.user) {
+    setReadyData({ ...r, user: { ...r.user, status } });
   }
 }
 

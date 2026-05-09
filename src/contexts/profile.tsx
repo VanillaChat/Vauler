@@ -3,6 +3,7 @@ import type { GatewayUser } from '../api/gateway';
 
 export type ProfileCtx = {
   open: (user: GatewayUser, e: MouseEvent, preferRight?: boolean, preferAbove?: boolean) => void;
+  openSettings: () => void;
 };
 
 export const ProfileContext = createContext<ProfileCtx>();

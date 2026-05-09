@@ -3,7 +3,7 @@ import { createMemo, For, Show } from 'solid-js';
 import type { GatewayChannel, GatewayUser } from '../api/gateway';
 import { Avatar } from '../components/Avatar';
 import { useProfile } from '../contexts/profile';
-import { currentUser, useGuild, useGuildUsers } from '../state/gateway-data';
+import { useGuild, useGuildUsers } from '../state/gateway-data';
 
 export const Route = createFileRoute('/app/$serverId')({
   component: ServerLayout,
@@ -28,8 +28,6 @@ function ServerLayout() {
   const offlineMembers = () =>
     guildUsers().filter((u) => u.status === 'UNAVAILABLE');
 
-  const me = currentUser;
-
   return (
     <>
       <aside class="w-64 shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col rounded-3xl my-3 ml-1 mr-2 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
@@ -51,7 +49,7 @@ function ServerLayout() {
           </div>
         </Show>
 
-        <div class="flex-1 overflow-y-auto px-3 py-2">
+        <div class="flex-1 overflow-y-auto px-3 py-2 pb-4">
           <ChannelGroup
             label="rooms"
             items={guild()?.channels ?? []}
@@ -59,36 +57,6 @@ function ServerLayout() {
             serverId={params().serverId}
           />
         </div>
-
-        <Show when={me()}>
-          {(self) => (
-            <div class="mx-3 mb-3 mt-1 px-3 py-2.5 flex items-center gap-3 bg-[#fdfaf3] dark:bg-[#1a1816] rounded-2xl shadow-[0_2px_6px_rgba(0,0,0,0.04)]">
-              <button
-                onClick={(e) => profile.open(self(), e, false, true)}
-                class="shrink-0"
-              >
-                <Avatar user={self()} size={34} ringColor="#fdfaf3" />
-              </button>
-              <button
-                onClick={(e) => profile.open(self(), e, false, true)}
-                class="flex-1 min-w-0 text-left"
-              >
-                <div class="text-sm font-medium truncate">
-                  {self().nickname ?? self().username}
-                </div>
-                <div class="text-xs text-stone-500 truncate font-display italic">
-                  {self().status.toLowerCase().replace('_', ' ')}
-                </div>
-              </button>
-              <button
-                class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-                title="Settings"
-              >
-                <i class="fa-solid fa-gear" />
-              </button>
-            </div>
-          )}
-        </Show>
       </aside>
 
       <Outlet />

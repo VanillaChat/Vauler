@@ -14,11 +14,18 @@ import {
   onMount,
   Show,
 } from 'solid-js';
-import { connect, disconnect, type GatewayUser } from '../api/gateway';
-import { statusColors, statusLabels } from '../components/Avatar';
+import {
+  connect,
+  updatePresence,
+  type GatewayUser,
+  type UserStatus,
+} from '../api/gateway';
+import { Avatar, statusColors, statusLabels } from '../components/Avatar';
 import { ServerModal } from '../components/ServerModal';
+import { SettingsModal } from '../components/SettingsModal';
 import { ProfileContext } from '../contexts/profile';
-import { colorForId, guilds } from '../state/gateway-data';
+import { colorForId, currentUser, guilds } from '../state/gateway-data';
+import { ready } from '../api/gateway';
 
 export const Route = createFileRoute('/app')({
   component: AppLayout,
@@ -26,7 +33,8 @@ export const Route = createFileRoute('/app')({
 
 function AppLayout() {
   onMount(() => connect());
-  onCleanup(() => disconnect());
+  // Intentionally not disconnecting on cleanup — keeps WS alive across HMR / route changes.
+  // Disconnect only on explicit logout.
 
   const navigate = useNavigate();
   const serverMatch = useMatch({
@@ -40,7 +48,10 @@ function AppLayout() {
 
   const [profileUser, setProfileUser] = createSignal<GatewayUser | null>(null);
   const [profilePos, setProfilePos] = createSignal({ x: 0, y: 0 });
+  const [profileOrigin, setProfileOrigin] = createSignal('top left');
+  const [statusPickerOpen, setStatusPickerOpen] = createSignal(false);
   const [serverModalOpen, setServerModalOpen] = createSignal(false);
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
   let popoverEl: HTMLDivElement | undefined;
 
   const openProfile = (
@@ -58,28 +69,76 @@ function AppLayout() {
 
     let x: number;
     let y: number;
+    let originX: 'left' | 'right';
+    let originY: 'top' | 'bottom';
 
     if (preferAbove) {
       x = rect.left;
-      y = rect.top - H - GAP;
-      if (y < 8) y = rect.bottom + GAP;
+      const above = rect.top - H - GAP;
+      if (above >= 8) {
+        y = above;
+        originY = 'bottom';
+      } else {
+        y = rect.bottom + GAP;
+        originY = 'top';
+      }
+      originX = 'left';
     } else {
       if (preferRight) {
-        x = rect.right + GAP;
-        if (x + W > window.innerWidth - 8) x = rect.left - W - GAP;
+        const right = rect.right + GAP;
+        if (right + W <= window.innerWidth - 8) {
+          x = right;
+          originX = 'left';
+        } else {
+          x = rect.left - W - GAP;
+          originX = 'right';
+        }
       } else {
-        x = rect.left - W - GAP;
-        if (x < 8) x = rect.right + GAP;
+        const left = rect.left - W - GAP;
+        if (left >= 8) {
+          x = left;
+          originX = 'right';
+        } else {
+          x = rect.right + GAP;
+          originX = 'left';
+        }
       }
-      y = rect.top + H <= window.innerHeight - 8 ? rect.top : rect.bottom - H;
+      if (rect.top + H <= window.innerHeight - 8) {
+        y = rect.top;
+        originY = 'top';
+      } else {
+        y = rect.bottom - H;
+        originY = 'bottom';
+      }
     }
 
     x = Math.max(8, Math.min(x, window.innerWidth - W - 8));
     y = Math.max(8, Math.min(y, window.innerHeight - H - 8));
 
     setProfilePos({ x, y });
+    setProfileOrigin(`${originY} ${originX}`);
+    setStatusPickerOpen(false);
     setProfileUser(user);
   };
+
+  const STATUSES: UserStatus[] = ['ONLINE', 'IDLE', 'DND', 'LOOKING_TO_PLAY', 'UNAVAILABLE'];
+
+  const liveProfileUser = createMemo<GatewayUser | null>(() => {
+    const u = profileUser();
+    if (!u) return null;
+    const me = currentUser();
+    if (me?.id === u.id) return me;
+    const r = ready();
+    if (r) {
+      const presenceStatus = r.presences?.find((p) => p.userId === u.id)?.status;
+      for (const guild of r.guilds) {
+        const m = guild.members?.find((mm) => mm.userId === u.id);
+        if (m) return { ...m.user, status: presenceStatus ?? m.user.status };
+      }
+      if (presenceStatus) return { ...u, status: presenceStatus };
+    }
+    return u;
+  });
 
   createEffect(() => {
     if (!profileUser()) return;
@@ -107,9 +166,9 @@ function AppLayout() {
   };
 
   return (
-    <ProfileContext.Provider value={{ open: openProfile }}>
+    <ProfileContext.Provider value={{ open: openProfile, openSettings: () => setSettingsOpen(true) }}>
       <div class="h-screen flex bg-[#fdfaf3] dark:bg-[#1a1816] text-stone-800 dark:text-stone-100 overflow-hidden">
-        <nav class="w-[80px] shrink-0 flex flex-col items-center py-5 gap-3 overflow-y-auto">
+        <nav class="w-[80px] shrink-0 flex flex-col items-center py-5">
           <Link to="/" class="block w-10 h-10 mb-1" aria-label="home">
             <span
               class="block w-10 h-10 bg-stone-900 dark:bg-stone-100"
@@ -119,7 +178,15 @@ function AppLayout() {
               }}
             />
           </Link>
-          <div class="w-6 h-px bg-stone-300 dark:bg-stone-700 my-1" />
+          <button
+            onClick={() => setServerModalOpen(true)}
+            class="w-12 h-12 rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 text-stone-400 hover:border-[#c9a942] hover:text-[#c9a942] hover:bg-[#f7e26c]/10 transition-colors flex items-center justify-center shrink-0 mt-3"
+            title="Add server"
+          >
+            <i class="fa-solid fa-plus" />
+          </button>
+          <div class="w-6 h-px bg-stone-300 dark:bg-stone-700 my-3" />
+          <div class="flex-1 w-full overflow-y-auto flex flex-col items-center gap-3 min-h-0">
           <For each={guilds()}>
             {(g) => {
               const active = () => g.id === currentServerId();
@@ -151,13 +218,27 @@ function AppLayout() {
               );
             }}
           </For>
-          <button
-            onClick={() => setServerModalOpen(true)}
-            class="w-12 h-12 rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 text-stone-400 hover:border-[#c9a942] hover:text-[#c9a942] hover:bg-[#f7e26c]/10 transition-colors flex items-center justify-center"
-            title="Add server"
-          >
-            <i class="fa-solid fa-plus" />
-          </button>
+          </div>
+
+          <Show when={currentUser()}>
+            {(self) => (
+              <div class="flex flex-col items-center gap-2 pb-1">
+                <button
+                  onClick={(e) => openProfile(self(), e, true)}
+                  title={`${self().username}/${self().tag}`}
+                >
+                  <Avatar user={self()} size={40} ringColor="#fdfaf3" />
+                </button>
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  class="w-9 h-9 rounded-xl text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 flex items-center justify-center transition-colors"
+                  title="Settings"
+                >
+                  <i class="fa-solid fa-gear text-sm" />
+                </button>
+              </div>
+            )}
+          </Show>
         </nav>
 
         <Outlet />
@@ -175,14 +256,19 @@ function AppLayout() {
           />
         </Show>
 
-        <Show when={profileUser()}>
+        <Show when={settingsOpen()}>
+          <SettingsModal onClose={() => setSettingsOpen(false)} />
+        </Show>
+
+        <Show when={liveProfileUser()}>
           {(u) => (
             <div
               ref={popoverEl}
-              class="fixed z-50 w-72 rounded-2xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden border border-stone-200 dark:border-stone-800 animate-[fadeIn_0.15s_ease-out]"
+              class="fixed z-50 w-72 rounded-2xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden border border-stone-200 dark:border-stone-800 animate-popover-in"
               style={{
                 left: `${profilePos().x}px`,
                 top: `${profilePos().y}px`,
+                'transform-origin': profileOrigin(),
               }}
             >
               <div
@@ -221,9 +307,52 @@ function AppLayout() {
                     </span>
                   </Show>
                 </div>
-                <div class="text-xs font-display italic text-stone-500 mt-0.5">
-                  {statusLabels[u().status]}
-                </div>
+                <Show
+                  when={u().id === currentUser()?.id}
+                  fallback={
+                    <div class="text-xs font-display italic text-stone-500 mt-0.5">
+                      {statusLabels[u().status]}
+                    </div>
+                  }
+                >
+                  <div class="relative mt-1">
+                    <button
+                      onClick={() => setStatusPickerOpen(!statusPickerOpen())}
+                      class="flex items-center gap-2 px-2 py-1 -ml-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800/60 text-xs font-display italic text-stone-500"
+                    >
+                      <span
+                        class="w-2 h-2 rounded-full"
+                        style={{ 'background-color': statusColors[u().status] }}
+                      />
+                      <span>{statusLabels[u().status]}</span>
+                      <i class="fa-solid fa-chevron-down text-[0.55rem] opacity-60" />
+                    </button>
+                    <Show when={statusPickerOpen()}>
+                      <div class="absolute left-0 top-full mt-1 w-52 rounded-xl bg-white dark:bg-[#1a1816] border border-stone-200 dark:border-stone-800 shadow-xl shadow-black/10 p-1 z-10">
+                        <For each={STATUSES}>
+                          {(s) => (
+                            <button
+                              onClick={() => {
+                                updatePresence(s);
+                                setStatusPickerOpen(false);
+                              }}
+                              class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-stone-100 dark:hover:bg-stone-800/60 text-left"
+                            >
+                              <span
+                                class="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ 'background-color': statusColors[s] }}
+                              />
+                              <span class="flex-1">{statusLabels[s]}</span>
+                              <Show when={s === u().status}>
+                                <i class="fa-solid fa-check text-xs text-stone-500" />
+                              </Show>
+                            </button>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                  </div>
+                </Show>
 
                 <Show when={u().bio}>
                   <div class="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
@@ -264,7 +393,7 @@ function AppLayout() {
                     Message
                   </button>
                   <button
-                    class="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:border-stone-400 dark:hover:border-stone-500 transition-colors"
+                    class="px-3 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 hover:border-stone-400 dark:hover:border-stone-600 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
                     title="Add friend"
                   >
                     <i class="fa-solid fa-user-plus" />

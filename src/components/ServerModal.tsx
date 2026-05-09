@@ -52,7 +52,7 @@ export function ServerModal(props: {
   };
 
   const tabClass = (active: boolean) =>
-    `flex-1 py-2 text-sm font-display rounded-xl transition-colors ${
+    `flex-1 py-2 text-sm font-display rounded-xl ${
       active
         ? 'bg-[#f7e26c] text-stone-900 font-medium'
         : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'
@@ -61,11 +61,11 @@ export function ServerModal(props: {
   return (
     <>
       <div
-        class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]"
+        class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm animate-fade-in"
         onClick={props.onClose}
       />
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div class="pointer-events-auto w-full max-w-md rounded-3xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden">
+        <div class="pointer-events-auto w-full max-w-md rounded-3xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden animate-popover-in">
           <div class="px-6 pt-6 pb-4 border-b border-stone-100 dark:border-stone-800">
             <h2 class="font-display text-3xl">a new server</h2>
             <p class="text-sm text-stone-500 italic font-display mt-1">
@@ -142,7 +142,7 @@ export function ServerModal(props: {
               <button
                 type="button"
                 onClick={props.onClose}
-                class="flex-1 py-2.5 rounded-xl text-sm border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:border-stone-400 dark:hover:border-stone-500 transition-colors"
+                class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 hover:border-stone-400 dark:hover:border-stone-600 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
               >
                 cancel
               </button>
