@@ -63,3 +63,20 @@ export function fetchMessages(
 export function sendTyping(channelId: string): Promise<void> {
   return api<void>(`/channels/${channelId}/typing`, { method: 'POST' });
 }
+
+export function editMessage(
+  channelId: string,
+  messageId: string,
+  content: string,
+): Promise<Message> {
+  return api<Message>(`/channels/${channelId}/messages/${messageId}`, {
+    method: 'PATCH',
+    json: { content },
+  });
+}
+
+export function deleteMessage(channelId: string, messageId: string): Promise<void> {
+  return api<void>(`/channels/${channelId}/messages/${messageId}`, {
+    method: 'DELETE',
+  });
+}

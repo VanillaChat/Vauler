@@ -16,6 +16,7 @@ import {
 } from 'solid-js';
 import {
   connect,
+  gatewayState,
   updatePresence,
   type GatewayUser,
   type UserStatus,
@@ -26,6 +27,7 @@ import { SettingsModal } from '../components/SettingsModal';
 import { ProfileContext } from '../contexts/profile';
 import { colorForId, currentUser, guilds } from '../state/gateway-data';
 import { ready } from '../api/gateway';
+import { t } from '../i18n';
 
 export const Route = createFileRoute('/app')({
   component: AppLayout,
@@ -59,6 +61,31 @@ function AppLayout() {
 
   const ANIM_MS = 130;
   let profileCloseTimer: number | null = null;
+
+  const [connBarVisible, setConnBarVisible] = createSignal(
+    gatewayState() !== 'ready',
+  );
+  const [connBarClosing, setConnBarClosing] = createSignal(false);
+  let connBarTimer: number | null = null;
+
+  createEffect(() => {
+    const s = gatewayState();
+    if (s !== 'ready') {
+      if (connBarTimer !== null) {
+        clearTimeout(connBarTimer);
+        connBarTimer = null;
+      }
+      setConnBarClosing(false);
+      setConnBarVisible(true);
+    } else if (connBarVisible() && !connBarClosing()) {
+      setConnBarClosing(true);
+      connBarTimer = window.setTimeout(() => {
+        setConnBarVisible(false);
+        setConnBarClosing(false);
+        connBarTimer = null;
+      }, 200);
+    }
+  });
 
   const closeProfile = () => {
     if (!profileUser() || profileClosing()) return;
@@ -216,6 +243,17 @@ function AppLayout() {
       }}
     >
       <div class="h-screen flex bg-[#fdfaf3] dark:bg-[#1a1816] text-stone-800 dark:text-stone-100 overflow-hidden">
+        <Show when={connBarVisible()}>
+          <div
+            class={`fixed top-4 left-1/2 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-[#fdf6cc] dark:bg-[#3a3624] text-[#7a5a00] dark:text-[#e8d27a] border border-[#f0d96b]/60 dark:border-[#5a5028] shadow-lg shadow-black/10 backdrop-blur-sm text-sm font-medium ${
+              connBarClosing() ? 'animate-slide-up-out' : 'animate-slide-down-in'
+            }`}
+            style={{ transform: 'translateX(-50%)' }}
+          >
+            <i class="fa-solid fa-circle-notch fa-spin text-xs" />
+            <span>{t('app-connecting')}</span>
+          </div>
+        </Show>
         <nav class="w-[80px] shrink-0 flex flex-col items-center py-5">
           <Link to="/" class="block w-10 h-10 mb-1" aria-label="home">
             <span
@@ -229,7 +267,7 @@ function AppLayout() {
           <button
             onClick={() => setServerModalOpen(true)}
             class="w-12 h-12 rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 text-stone-400 hover:border-[#c9a942] hover:text-[#c9a942] hover:bg-[#f7e26c]/10 transition-colors flex items-center justify-center shrink-0 mt-3"
-            title="Add server"
+            title={t('app-add-server')}
           >
             <i class="fa-solid fa-plus" />
           </button>
@@ -283,7 +321,7 @@ function AppLayout() {
                     setSettingsOpen(true);
                   }}
                   class="w-9 h-9 rounded-xl text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 flex items-center justify-center transition-colors"
-                  title="Settings"
+                  title={t('settings-title')}
                 >
                   <i class="fa-solid fa-gear text-sm" />
                 </button>
@@ -411,7 +449,7 @@ function AppLayout() {
                 <Show when={u().bio}>
                   <div class="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
                     <div class="text-[0.7rem] uppercase tracking-wider text-stone-400 font-medium mb-1">
-                      about
+                      {t('profile-about')}
                     </div>
                     <p class="text-sm text-stone-600 dark:text-stone-400 italic font-display">
                       {u().bio}
@@ -421,7 +459,7 @@ function AppLayout() {
 
                 <div class="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
                   <div class="text-[0.7rem] uppercase tracking-wider text-stone-400 font-medium mb-1">
-                    member since
+                    {t('profile-member-since')}
                   </div>
                   <p class="text-sm text-stone-600 dark:text-stone-400 font-display italic">
                     {new Date(u().createdAt).toLocaleDateString(undefined, {
@@ -434,7 +472,7 @@ function AppLayout() {
 
                 <div class="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
                   <div class="text-[0.7rem] uppercase tracking-wider text-stone-400 font-medium mb-1">
-                    id
+                    {t('profile-id')}
                   </div>
                   <p class="font-mono text-xs text-stone-500 dark:text-stone-400 break-all">
                     {u().id}
@@ -444,11 +482,11 @@ function AppLayout() {
                 <div class="mt-4 flex gap-2">
                   <button class="flex-1 px-3 py-2 rounded-xl bg-[#f7e26c] text-stone-900 text-sm font-medium hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow flex items-center justify-center gap-2">
                     <i class="fa-solid fa-paper-plane text-xs" />
-                    Message
+                    {t('profile-message')}
                   </button>
                   <button
                     class="px-3 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 hover:border-stone-400 dark:hover:border-stone-600 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
-                    title="Add friend"
+                    title={t('profile-add-friend')}
                   >
                     <i class="fa-solid fa-user-plus" />
                   </button>

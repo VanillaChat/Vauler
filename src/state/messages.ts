@@ -35,6 +35,25 @@ export function prependMessages(channelId: string, older: Message[]) {
   setByChannel({ ...map, [channelId]: dedupeMerge(older, existing) });
 }
 
+export function updateMessage(updated: Message) {
+  if (!updated?.id || !updated.channelId) return;
+  const map = byChannel();
+  const list = map[updated.channelId];
+  if (!list) return;
+  const next = list.map((m) => (m.id === updated.id ? { ...m, ...updated } : m));
+  setByChannel({ ...map, [updated.channelId]: next });
+}
+
+export function removeMessage(channelId: string, messageId: string) {
+  const map = byChannel();
+  const list = map[channelId];
+  if (!list) return;
+  setByChannel({
+    ...map,
+    [channelId]: list.filter((m) => m.id !== messageId),
+  });
+}
+
 const loadedChannels = new Set<string>();
 export const isChannelLoaded = (id: string) => loadedChannels.has(id);
 export const markChannelLoaded = (id: string) => loadedChannels.add(id);

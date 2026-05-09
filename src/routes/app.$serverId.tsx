@@ -1,9 +1,11 @@
-import { createFileRoute, Link, Outlet, useMatch } from '@tanstack/solid-router';
-import { createMemo, For, Show } from 'solid-js';
+import { createFileRoute, Link, Outlet, useMatch, useNavigate } from '@tanstack/solid-router';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import type { GatewayChannel, GatewayUser } from '../api/gateway';
 import { Avatar } from '../components/Avatar';
+import { CreateChannelModal } from '../components/CreateChannelModal';
 import { useProfile } from '../contexts/profile';
-import { useGuild, useGuildUsers } from '../state/gateway-data';
+import { t } from '../i18n';
+import { currentUser, useGuild, useGuildUsers } from '../state/gateway-data';
 
 export const Route = createFileRoute('/app/$serverId')({
   component: ServerLayout,
@@ -12,6 +14,7 @@ export const Route = createFileRoute('/app/$serverId')({
 function ServerLayout() {
   const params = Route.useParams();
   const profile = useProfile();
+  const navigate = useNavigate();
   const channelMatch = useMatch({
     from: '/app/$serverId/$channelId',
     shouldThrow: false,
@@ -22,11 +25,25 @@ function ServerLayout() {
   });
 
   const guild = useGuild(() => params().serverId);
+  const isOwner = () => guild()?.ownerId === currentUser()?.id;
   const guildUsers = useGuildUsers(() => params().serverId);
   const onlineMembers = () =>
     guildUsers().filter((u) => u.status !== 'UNAVAILABLE');
   const offlineMembers = () =>
     guildUsers().filter((u) => u.status === 'UNAVAILABLE');
+
+  const [channelModalOpen, setChannelModalOpen] = createSignal(false);
+  const [channelModalClosing, setChannelModalClosing] = createSignal(false);
+  const ANIM_MS = 130;
+
+  const closeChannelModal = () => {
+    if (!channelModalOpen() || channelModalClosing()) return;
+    setChannelModalClosing(true);
+    setTimeout(() => {
+      setChannelModalOpen(false);
+      setChannelModalClosing(false);
+    }, ANIM_MS);
+  };
 
   return (
     <>
@@ -37,7 +54,7 @@ function ServerLayout() {
           </span>
           <button
             class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-            title="Server menu"
+            title={t('app-server-menu')}
           >
             <i class="fa-solid fa-ellipsis" />
           </button>
@@ -51,19 +68,42 @@ function ServerLayout() {
 
         <div class="flex-1 overflow-y-auto px-3 py-2 pb-4">
           <ChannelGroup
-            label="rooms"
+            label={t('channels-rooms')}
             items={guild()?.channels ?? []}
             currentId={currentChannelId}
             serverId={params().serverId}
+            onAdd={
+              isOwner()
+                ? () => {
+                    setChannelModalClosing(false);
+                    setChannelModalOpen(true);
+                  }
+                : undefined
+            }
           />
         </div>
       </aside>
+
+      <Show when={channelModalOpen() || channelModalClosing()}>
+        <CreateChannelModal
+          guildId={params().serverId}
+          closing={channelModalClosing()}
+          onClose={closeChannelModal}
+          onCreated={(c) =>
+            navigate({
+              to: '/app/$serverId/$channelId',
+              params: { serverId: params().serverId, channelId: c.id },
+              viewTransition: false,
+            })
+          }
+        />
+      </Show>
 
       <Outlet />
 
       <aside class="hidden xl:flex w-64 shrink-0 my-3 mr-3 ml-0 bg-[#f5efe1] dark:bg-[#211e1b] rounded-3xl flex-col shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden">
         <div class="px-5 h-14 flex items-center gap-2 shrink-0">
-          <span class="font-display text-lg">in the room</span>
+          <span class="font-display text-lg">{t('members-room')}</span>
           <span class="text-xs text-stone-400 font-display italic">
             {guildUsers().length}
           </span>
@@ -71,14 +111,14 @@ function ServerLayout() {
         <div class="flex-1 overflow-y-auto px-3 py-1">
           <Show when={onlineMembers().length > 0}>
             <MemberGroup
-              label="online"
+              label={t('members-online')}
               items={onlineMembers()}
               onSelect={profile.open}
             />
           </Show>
           <Show when={offlineMembers().length > 0}>
             <MemberGroup
-              label="offline"
+              label={t('members-offline')}
               items={offlineMembers()}
               muted
               onSelect={profile.open}
@@ -95,10 +135,25 @@ function ChannelGroup(props: {
   items: GatewayChannel[];
   currentId: () => string | undefined;
   serverId: string;
+  onAdd?: () => void;
 }) {
   return (
     <div>
-      <div class="px-3 mb-1.5 text-xs font-display italic text-stone-500">{props.label}</div>
+      <div class="px-3 mb-1.5 flex items-center group">
+        <span class="text-xs font-display italic text-stone-500 flex-1">
+          {props.label}
+        </span>
+        <Show when={props.onAdd}>
+          <button
+            type="button"
+            onClick={props.onAdd}
+            class="w-5 h-5 rounded-md flex items-center justify-center text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+            title={t('app-create-channel')}
+          >
+            <i class="fa-solid fa-plus text-[0.65rem]" />
+          </button>
+        </Show>
+      </div>
       <div class="space-y-0.5">
         <For each={props.items}>
           {(c) => {
@@ -122,7 +177,7 @@ function ChannelGroup(props: {
         </For>
         <Show when={props.items.length === 0}>
           <div class="px-3 py-2 text-xs text-stone-400 italic font-display">
-            no channels yet
+            {t('app-no-channels')}
           </div>
         </Show>
       </div>

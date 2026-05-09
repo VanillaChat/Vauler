@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js';
 import type { Message } from './messages';
-import { addMessage } from '../state/messages';
+import { addMessage, removeMessage, updateMessage } from '../state/messages';
 import { addTyping } from '../state/typing';
 
 export const OP_DISPATCH = 0;
@@ -51,6 +51,7 @@ export type GatewayChannel = {
   name: string;
   createdAt: string;
   guildId: string;
+  rateLimitPerUser?: number;
 };
 
 export type GatewayMember = {
@@ -99,6 +100,10 @@ type Persisted = {
   heartbeatTimer: number | null;
   readyData: ReadyPayload | null;
   state: GatewayState;
+  reconnectTimer: number | null;
+  reconnectAttempts: number;
+  intentionalClose: boolean;
+  netListenersAttached: boolean;
 };
 
 const g = globalThis as { __vanillaGateway?: Persisted };
@@ -107,6 +112,10 @@ const persisted: Persisted = (g.__vanillaGateway ??= {
   heartbeatTimer: null,
   readyData: null,
   state: 'disconnected',
+  reconnectTimer: null,
+  reconnectAttempts: 0,
+  intentionalClose: false,
+  netListenersAttached: false,
 });
 
 const initialState: GatewayState =
@@ -166,6 +175,20 @@ export function removeGuild(guildId: string) {
   setReadyData({ ...r, guilds: r.guilds.filter((g) => g.id !== guildId) });
 }
 
+export function addGuildChannel(guildId: string, channel: GatewayChannel) {
+  const r = readyData();
+  if (!r) return;
+  const idx = r.guilds.findIndex((g) => g.id === guildId);
+  if (idx === -1) return;
+  const guild = r.guilds[idx];
+  const existing = guild.channels ?? [];
+  if (existing.some((c) => c.id === channel.id)) return;
+  const newGuild = { ...guild, channels: [...existing, channel] };
+  const newGuilds = [...r.guilds];
+  newGuilds[idx] = newGuild;
+  setReadyData({ ...r, guilds: newGuilds });
+}
+
 export function addGuildMember(guildId: string, member: GatewayMember) {
   const r = readyData();
   if (!r) return;
@@ -216,12 +239,16 @@ function resolveGatewayUrl(): string {
 }
 
 function attachHandlers(socket: WebSocket) {
-  socket.onopen = () => setState('connected');
+  socket.onopen = () => {
+    persisted.reconnectAttempts = 0;
+    setState('connected');
+  };
   socket.onclose = () => {
     clearHeartbeat();
     setReadyData(null);
     setState('disconnected');
     persisted.ws = null;
+    if (!persisted.intentionalClose) scheduleReconnect();
   };
   socket.onerror = () => {};
   socket.onmessage = (e) => {
@@ -236,6 +263,49 @@ function attachHandlers(socket: WebSocket) {
   };
 }
 
+function clearReconnect() {
+  if (persisted.reconnectTimer !== null) {
+    clearTimeout(persisted.reconnectTimer);
+    persisted.reconnectTimer = null;
+  }
+}
+
+function scheduleReconnect() {
+  clearReconnect();
+  const attempt = persisted.reconnectAttempts++;
+  const base = Math.min(30000, 1000 * 2 ** attempt);
+  const jitter = Math.random() * 500;
+  const delay = base + jitter;
+  persisted.reconnectTimer = window.setTimeout(() => {
+    persisted.reconnectTimer = null;
+    if (persisted.intentionalClose) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    connect();
+  }, delay);
+}
+
+function attachNetListeners() {
+  if (persisted.netListenersAttached) return;
+  persisted.netListenersAttached = true;
+  window.addEventListener('online', () => {
+    if (persisted.intentionalClose) return;
+    const ws = persisted.ws;
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    persisted.reconnectAttempts = 0;
+    clearReconnect();
+    connect();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (persisted.intentionalClose) return;
+    const ws = persisted.ws;
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    persisted.reconnectAttempts = 0;
+    clearReconnect();
+    connect();
+  });
+}
+
 // Re-attach handlers on hot reload if WS already exists
 if (
   persisted.ws &&
@@ -246,6 +316,8 @@ if (
 }
 
 export function connect() {
+  attachNetListeners();
+  persisted.intentionalClose = false;
   const existing = persisted.ws;
   if (
     existing &&
@@ -253,6 +325,7 @@ export function connect() {
   ) {
     return;
   }
+  clearReconnect();
   setState('connecting');
   const socket = new WebSocket(resolveGatewayUrl());
   persisted.ws = socket;
@@ -287,6 +360,12 @@ function handleMessage(msg: GatewayMessage) {
     if (inner?.id) {
       addGuild({ ...inner, channels, members });
     }
+    return;
+  }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'CHANNEL_CREATE') {
+    const d = msg.d as GatewayChannel | undefined;
+    if (d?.id && d?.guildId) addGuildChannel(d.guildId, d);
     return;
   }
 
@@ -334,24 +413,38 @@ function handleMessage(msg: GatewayMessage) {
     return;
   }
 
+  if (msg.op === OP_DISPATCH && msg.t === 'MESSAGE_UPDATE') {
+    updateMessage(msg.d as Message);
+    return;
+  }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'MESSAGE_DELETE') {
+    const d = msg.d as { id?: string; channelId?: string } | undefined;
+    if (d?.id && d?.channelId) removeMessage(d.channelId, d.id);
+    return;
+  }
+
   if (msg.op === OP_DISPATCH && msg.t === 'TYPING_START') {
     const d = msg.d as
       | {
-          channelId: string;
-          userId: string;
-          expiresAt: number;
+          channelId?: string;
+          channel_id?: string;
+          userId?: string;
+          user_id?: string;
           user?: {
             username?: string;
             member?: { nickname: string | null } | null;
           };
         }
       | undefined;
-    if (!d?.channelId || !d?.userId) return;
-    if (d.userId === readyData()?.user?.id) return;
-    addTyping(d.channelId, {
-      userId: d.userId,
-      username: d.user?.member?.nickname ?? d.user?.username ?? 'someone',
-      expiresAt: d.expiresAt ?? Date.now() + 10_000,
+    const channelId = d?.channelId ?? d?.channel_id;
+    const userId = d?.userId ?? d?.user_id;
+    if (!channelId || !userId) return;
+    if (userId === readyData()?.user?.id) return;
+    addTyping(channelId, {
+      userId,
+      username: d?.user?.member?.nickname ?? d?.user?.username ?? 'someone',
+      expiresAt: Date.now() + 6000,
     });
     return;
   }
@@ -373,6 +466,9 @@ function clearHeartbeat() {
 }
 
 export function disconnect() {
+  persisted.intentionalClose = true;
+  clearReconnect();
+  persisted.reconnectAttempts = 0;
   clearHeartbeat();
   persisted.ws?.close();
   persisted.ws = null;

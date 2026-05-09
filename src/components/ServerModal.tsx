@@ -2,11 +2,11 @@ import { createSignal, Show } from 'solid-js';
 import { ApiError } from '../api/client';
 import { addGuild } from '../api/gateway';
 import { createServer, joinServer } from '../api/servers';
+import { t } from '../i18n';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 
 type Tab = 'create' | 'join';
-
-const inputClass =
-  'w-full rounded-xl bg-[#fdfaf3] dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-4 py-3 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-600 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600';
 
 export function ServerModal(props: {
   onClose: () => void;
@@ -45,7 +45,7 @@ export function ServerModal(props: {
           ? err.message
           : err instanceof Error
             ? err.message
-            : 'Failed';
+            : t('server-modal-failed');
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -74,9 +74,9 @@ export function ServerModal(props: {
           }`}
         >
           <div class="px-6 pt-6 pb-4 border-b border-stone-100 dark:border-stone-800">
-            <h2 class="font-display text-3xl">a new server</h2>
+            <h2 class="font-display text-3xl">{t('server-modal-title')}</h2>
             <p class="text-sm text-stone-500 italic font-display mt-1">
-              start one or hop into a friend's.
+              {t('server-modal-subtitle')}
             </p>
           </div>
 
@@ -86,14 +86,14 @@ export function ServerModal(props: {
               onClick={() => setTab('create')}
               class={tabClass(tab() === 'create')}
             >
-              create
+              {t('server-modal-create')}
             </button>
             <button
               type="button"
               onClick={() => setTab('join')}
               class={tabClass(tab() === 'join')}
             >
-              join
+              {t('server-modal-join')}
             </button>
           </div>
 
@@ -103,41 +103,39 @@ export function ServerModal(props: {
               fallback={
                 <>
                   <label class="block text-xs font-display italic text-stone-500 px-1">
-                    invite code
+                    {t('server-modal-invite')}
                   </label>
-                  <input
+                  <Input
                     type="text"
-                    placeholder="paste an invite code"
+                    placeholder={t('server-modal-invite-placeholder')}
                     required
                     value={code()}
                     onInput={(e) => setCode(e.currentTarget.value)}
-                    class={inputClass}
                   />
                 </>
               }
             >
               <label class="block text-xs font-display italic text-stone-500 px-1">
-                server name
+                {t('server-modal-name')}
               </label>
-              <input
+              <Input
                 type="text"
-                placeholder="my cozy room"
+                placeholder={t('server-modal-name-placeholder')}
                 required
                 maxLength={100}
                 value={name()}
                 onInput={(e) => setName(e.currentTarget.value)}
-                class={inputClass}
               />
               <label class="block text-xs font-display italic text-stone-500 px-1 pt-2">
-                brief <span class="text-stone-400">(optional)</span>
+                {t('server-modal-brief')}{' '}
+                <span class="text-stone-400">{t('server-modal-brief-optional')}</span>
               </label>
-              <input
+              <Input
                 type="text"
-                placeholder="what's this place about?"
+                placeholder={t('server-modal-brief-placeholder')}
                 maxLength={200}
                 value={brief()}
                 onInput={(e) => setBrief(e.currentTarget.value)}
-                class={inputClass}
               />
             </Show>
 
@@ -146,20 +144,12 @@ export function ServerModal(props: {
             </Show>
 
             <div class="flex gap-2 pt-3">
-              <button
-                type="button"
-                onClick={props.onClose}
-                class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 hover:border-stone-400 dark:hover:border-stone-600 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
-              >
-                cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting()}
-                class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-[#f7e26c] text-stone-900 hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {submitting() ? '…' : tab() === 'create' ? 'create' : 'join'}
-              </button>
+              <Button variant="secondary" fullWidth onClick={props.onClose}>
+                {t('server-modal-cancel')}
+              </Button>
+              <Button type="submit" fullWidth loading={submitting()}>
+                {tab() === 'create' ? t('server-modal-create') : t('server-modal-join')}
+              </Button>
             </div>
           </form>
         </div>

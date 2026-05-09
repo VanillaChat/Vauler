@@ -143,9 +143,73 @@ settings-delete-title = delete account
 settings-delete-sub = permanently remove your account and all data. cannot be undone.
 settings-delete-btn = delete account
 settings-logout-error = Logout failed
+settings-email = email
+settings-close = close (esc)
+settings-theme-light = light
+settings-theme-dim = dim
+settings-theme-dark = dark
 
 # invite banner
 invite-copy = copy
 invite-copied = copied
 invite-button = invite
 invite-failed = Failed to generate
+
+# channel modal
+channel-modal-title = a new room
+channel-modal-subtitle = somewhere fresh to talk.
+channel-modal-name = channel name
+channel-modal-name-placeholder = general
+channel-modal-slowmode = slowmode
+channel-modal-slowmode-hint = per-user message cooldown
+channel-modal-create = create
+channel-modal-cancel = cancel
+channel-modal-failed = Failed
+
+# slowmode option labels
+slowmode-off = off
+slowmode-5s = 5 seconds
+slowmode-10s = 10 seconds
+slowmode-15s = 15 seconds
+slowmode-30s = 30 seconds
+slowmode-1m = 1 minute
+slowmode-2m = 2 minutes
+slowmode-5m = 5 minutes
+slowmode-10m = 10 minutes
+slowmode-15m = 15 minutes
+slowmode-30m = 30 minutes
+slowmode-1h = 1 hour
+slowmode-2h = 2 hours
+slowmode-6h = 6 hours
+slowmode-left = { $time } left
+slowmode-bypassed = bypassed
+
+# context menu
+context-copy-text = copy text
+context-copy-id = copy id
+context-copy-link = copy link
+context-edit = edit
+context-delete = delete
+
+# delete modal
+delete-title = delete this message?
+delete-sub = this can't be undone.
+delete-cancel = cancel
+delete-confirm = delete
+delete-confirming = deleting…
+
+# edit message
+edit-hint = enter to save · esc to
+edit-cancel = cancel
+
+# jump to bottom
+app-jump-to-present = jump to present
+app-send-failed = Send failed
+
+# add server / channel buttons
+app-add-server = Add server
+app-create-channel = Create channel
+app-server-menu = Server menu
+app-attach = Attach
+app-emoji = Emoji
+app-send = Send

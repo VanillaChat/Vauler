@@ -3,17 +3,24 @@ import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { disconnect, ready } from '../api/gateway';
+import { t } from '../i18n';
 
 type Section = 'account' | 'profile' | 'appearance' | 'danger';
 
-type SectionDef = { id: Section; label: string; icon: string };
+type SectionDef = { id: Section; labelKey: string; icon: string };
 
 const SECTIONS: SectionDef[] = [
-  { id: 'account', label: 'account', icon: 'fa-user' },
-  { id: 'profile', label: 'profile', icon: 'fa-id-card' },
-  { id: 'appearance', label: 'appearance', icon: 'fa-palette' },
-  { id: 'danger', label: 'danger zone', icon: 'fa-triangle-exclamation' },
+  { id: 'account', labelKey: 'settings-account', icon: 'fa-user' },
+  { id: 'profile', labelKey: 'settings-profile', icon: 'fa-id-card' },
+  { id: 'appearance', labelKey: 'settings-appearance', icon: 'fa-palette' },
+  { id: 'danger', labelKey: 'settings-danger', icon: 'fa-triangle-exclamation' },
 ];
+
+const THEME_KEYS: Record<'LIGHT' | 'DIM' | 'DARK', string> = {
+  LIGHT: 'settings-theme-light',
+  DIM: 'settings-theme-dim',
+  DARK: 'settings-theme-dark',
+};
 
 const inputClass =
   'w-full rounded-xl bg-[#fdfaf3] dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-4 py-2.5 text-sm outline-none focus:border-stone-400 dark:focus:border-stone-600 transition-colors placeholder:text-stone-400 dark:placeholder:text-stone-600';
@@ -45,18 +52,17 @@ export function SettingsModal(props: { onClose: () => void; closing?: boolean })
   const [loggingOut, setLoggingOut] = createSignal(false);
   const [err, setErr] = createSignal<string | null>(null);
 
-  // sync from ready data on mount
   const u = me();
   if (u) {
     setBio(u.bio ?? '');
     setAvatar(u.avatar ?? '');
     setBanner(u.banner ?? '');
   }
-  const s = settings();
-  if (s) {
-    setTheme(s.theme);
-    setCompact(s.compactMode);
-    setShowAvatars(s.compactShowAvatars);
+  const initialSettings = settings();
+  if (initialSettings) {
+    setTheme(initialSettings.theme);
+    setCompact(initialSettings.compactMode);
+    setShowAvatars(initialSettings.compactShowAvatars);
   }
 
   const onLogout = async () => {
@@ -68,7 +74,11 @@ export function SettingsModal(props: { onClose: () => void; closing?: boolean })
       navigate({ to: '/login' });
     } catch (e) {
       setErr(
-        e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Logout failed',
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : t('settings-logout-error'),
       );
     } finally {
       setLoggingOut(false);
@@ -91,20 +101,20 @@ export function SettingsModal(props: { onClose: () => void; closing?: boolean })
         >
           <aside class="w-56 shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col px-3 py-5 gap-1 border-r border-stone-200 dark:border-stone-800">
             <div class="px-3 mb-3">
-              <h2 class="font-display text-2xl">settings</h2>
+              <h2 class="font-display text-2xl">{t('settings-title')}</h2>
             </div>
             <For each={SECTIONS}>
-              {(s) => (
+              {(item) => (
                 <button
-                  onClick={() => setSection(s.id)}
+                  onClick={() => setSection(item.id)}
                   class={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-left ${
-                    section() === s.id
+                    section() === item.id
                       ? 'bg-[#f7e26c] text-stone-900 font-medium'
                       : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/40 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
-                  <i class={`fa-solid ${s.icon} w-4 text-center text-xs opacity-70`} />
-                  <span>{s.label}</span>
+                  <i class={`fa-solid ${item.icon} w-4 text-center text-xs opacity-70`} />
+                  <span>{t(item.labelKey)}</span>
                 </button>
               )}
             </For>
@@ -114,156 +124,158 @@ export function SettingsModal(props: { onClose: () => void; closing?: boolean })
             <button
               onClick={props.onClose}
               class="absolute top-4 right-5 w-9 h-9 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center z-10"
-              title="Close (esc)"
+              title={t('settings-close')}
             >
               <i class="fa-solid fa-xmark" />
             </button>
 
             <div class="max-w-2xl mx-auto px-8 py-10">
-          <Show when={section() === 'account'}>
-            <h3 class="font-display text-3xl mb-1">account</h3>
-            <p class="text-sm text-stone-500 italic font-display mb-8">
-              your basic identity.
-            </p>
-            <Field label="username">
-              <input class={inputClass} value={me()?.username ?? ''} readonly />
-            </Field>
-            <Field label="tag">
-              <input class={inputClass} value={me()?.tag ?? ''} readonly />
-            </Field>
-            <Field label="email">
-              <input class={inputClass} value={account()?.email ?? ''} readonly />
-            </Field>
-            <Field label="email verified">
-              <input class={inputClass} value={account()?.emailVerified ?? '—'} readonly />
-            </Field>
-            <Field label="locale">
-              <input class={inputClass} value={account()?.locale ?? ''} readonly />
-            </Field>
-            <Field label="user id">
-              <input
-                class={`${inputClass} font-mono text-xs`}
-                value={me()?.id ?? ''}
-                readonly
-              />
-            </Field>
-          </Show>
+              <Show when={section() === 'account'}>
+                <h3 class="font-display text-3xl mb-1">{t('settings-account')}</h3>
+                <p class="text-sm text-stone-500 italic font-display mb-8">
+                  {t('settings-account-sub')}
+                </p>
+                <Field label={t('settings-username')}>
+                  <input class={inputClass} value={me()?.username ?? ''} readonly />
+                </Field>
+                <Field label={t('settings-tag')}>
+                  <input class={inputClass} value={me()?.tag ?? ''} readonly />
+                </Field>
+                <Field label={t('settings-email')}>
+                  <input class={inputClass} value={account()?.email ?? ''} readonly />
+                </Field>
+                <Field label={t('settings-email-verified')}>
+                  <input
+                    class={inputClass}
+                    value={account()?.emailVerified ?? '—'}
+                    readonly
+                  />
+                </Field>
+                <Field label={t('settings-locale')}>
+                  <input class={inputClass} value={account()?.locale ?? ''} readonly />
+                </Field>
+                <Field label={t('settings-user-id')}>
+                  <input
+                    class={`${inputClass} font-mono text-xs`}
+                    value={me()?.id ?? ''}
+                    readonly
+                  />
+                </Field>
+              </Show>
 
-          <Show when={section() === 'profile'}>
-            <h3 class="font-display text-3xl mb-1">profile</h3>
-            <p class="text-sm text-stone-500 italic font-display mb-8">
-              what others see when they look you up.
-            </p>
-            <Field label="bio">
-              <textarea
-                rows={4}
-                placeholder="say something about yourself"
-                value={bio()}
-                onInput={(e) => setBio(e.currentTarget.value)}
-                class={`${inputClass} resize-none`}
-              />
-            </Field>
-            <Field label="avatar url">
-              <input
-                type="url"
-                placeholder="https://..."
-                value={avatar()}
-                onInput={(e) => setAvatar(e.currentTarget.value)}
-                class={inputClass}
-              />
-            </Field>
-            <Field label="banner url">
-              <input
-                type="url"
-                placeholder="https://..."
-                value={banner()}
-                onInput={(e) => setBanner(e.currentTarget.value)}
-                class={inputClass}
-              />
-            </Field>
-            <div class="mt-6 flex gap-2">
-              <button class="px-5 py-2.5 rounded-xl text-sm font-medium bg-[#f7e26c] text-stone-900 hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow">
-                save changes
-              </button>
-            </div>
-          </Show>
+              <Show when={section() === 'profile'}>
+                <h3 class="font-display text-3xl mb-1">{t('settings-profile')}</h3>
+                <p class="text-sm text-stone-500 italic font-display mb-8">
+                  {t('settings-profile-sub')}
+                </p>
+                <Field label={t('settings-bio')}>
+                  <textarea
+                    rows={4}
+                    placeholder={t('settings-bio-placeholder')}
+                    value={bio()}
+                    onInput={(e) => setBio(e.currentTarget.value)}
+                    class={`${inputClass} resize-none`}
+                  />
+                </Field>
+                <Field label={t('settings-avatar-url')}>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={avatar()}
+                    onInput={(e) => setAvatar(e.currentTarget.value)}
+                    class={inputClass}
+                  />
+                </Field>
+                <Field label={t('settings-banner-url')}>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={banner()}
+                    onInput={(e) => setBanner(e.currentTarget.value)}
+                    class={inputClass}
+                  />
+                </Field>
+                <div class="mt-6 flex gap-2">
+                  <button class="px-5 py-2.5 rounded-xl text-sm font-medium bg-[#f7e26c] text-stone-900 hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow">
+                    {t('settings-save-changes')}
+                  </button>
+                </div>
+              </Show>
 
-          <Show when={section() === 'appearance'}>
-            <h3 class="font-display text-3xl mb-1">appearance</h3>
-            <p class="text-sm text-stone-500 italic font-display mb-8">
-              tune how vanilla looks.
-            </p>
-            <Field label="theme">
-              <div class="flex gap-2">
-                <For each={['LIGHT', 'DIM', 'DARK'] as const}>
-                  {(t) => (
-                    <button
-                      onClick={() => setTheme(t)}
-                      class={`flex-1 px-4 py-3 rounded-xl text-sm font-medium border ${
-                        theme() === t
-                          ? 'bg-[#f7e26c] text-stone-900 border-[#f7e26c]'
-                          : 'bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700'
-                      }`}
-                    >
-                      {t.toLowerCase()}
-                    </button>
-                  )}
-                </For>
-              </div>
-            </Field>
-            <ToggleField
-              label="compact mode"
-              hint="denser message rows"
-              value={compact()}
-              onChange={setCompact}
-            />
-            <ToggleField
-              label="show avatars in compact"
-              hint="keep avatars visible even in compact mode"
-              value={showAvatars()}
-              onChange={setShowAvatars}
-            />
-            <div class="mt-6 flex gap-2">
-              <button class="px-5 py-2.5 rounded-xl text-sm font-medium bg-[#f7e26c] text-stone-900 hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow">
-                save preferences
-              </button>
-            </div>
-          </Show>
+              <Show when={section() === 'appearance'}>
+                <h3 class="font-display text-3xl mb-1">{t('settings-appearance')}</h3>
+                <p class="text-sm text-stone-500 italic font-display mb-8">
+                  {t('settings-appearance-sub')}
+                </p>
+                <Field label={t('settings-theme')}>
+                  <div class="flex gap-2">
+                    <For each={['LIGHT', 'DIM', 'DARK'] as const}>
+                      {(themeId) => (
+                        <button
+                          onClick={() => setTheme(themeId)}
+                          class={`flex-1 px-4 py-3 rounded-xl text-sm font-medium border ${
+                            theme() === themeId
+                              ? 'bg-[#f7e26c] text-stone-900 border-[#f7e26c]'
+                              : 'bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700'
+                          }`}
+                        >
+                          {t(THEME_KEYS[themeId])}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Field>
+                <ToggleField
+                  label={t('settings-compact-mode')}
+                  hint={t('settings-compact-mode-hint')}
+                  value={compact()}
+                  onChange={setCompact}
+                />
+                <ToggleField
+                  label={t('settings-show-avatars')}
+                  hint={t('settings-show-avatars-hint')}
+                  value={showAvatars()}
+                  onChange={setShowAvatars}
+                />
+                <div class="mt-6 flex gap-2">
+                  <button class="px-5 py-2.5 rounded-xl text-sm font-medium bg-[#f7e26c] text-stone-900 hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow">
+                    {t('settings-save-prefs')}
+                  </button>
+                </div>
+              </Show>
 
-          <Show when={section() === 'danger'}>
-            <h3 class="font-display text-3xl mb-1">danger zone</h3>
-            <p class="text-sm text-stone-500 italic font-display mb-8">
-              irreversible doors. mind your step.
-            </p>
+              <Show when={section() === 'danger'}>
+                <h3 class="font-display text-3xl mb-1">{t('settings-danger')}</h3>
+                <p class="text-sm text-stone-500 italic font-display mb-8">
+                  {t('settings-danger-sub')}
+                </p>
 
-            <div class="rounded-xl border border-stone-200 dark:border-stone-800 p-5 mb-4">
-              <h4 class="font-display text-lg mb-1">log out</h4>
-              <p class="text-sm text-stone-500 mb-3">end your session on this device.</p>
-              <button
-                onClick={onLogout}
-                disabled={loggingOut()}
-                class="px-4 py-2 rounded-xl text-sm font-medium bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 disabled:opacity-60"
-              >
-                {loggingOut() ? 'logging out…' : 'log out'}
-              </button>
-            </div>
+                <div class="rounded-xl border border-stone-200 dark:border-stone-800 p-5 mb-4">
+                  <h4 class="font-display text-lg mb-1">{t('settings-logout-title')}</h4>
+                  <p class="text-sm text-stone-500 mb-3">{t('settings-logout-sub')}</p>
+                  <button
+                    onClick={onLogout}
+                    disabled={loggingOut()}
+                    class="px-4 py-2 rounded-xl text-sm font-medium bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 disabled:opacity-60"
+                  >
+                    {loggingOut() ? t('settings-logging-out') : t('settings-logout')}
+                  </button>
+                </div>
 
-            <div class="rounded-xl border border-red-300 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-5">
-              <h4 class="font-display text-lg text-red-700 dark:text-red-400 mb-1">
-                delete account
-              </h4>
-              <p class="text-sm text-stone-500 mb-3">
-                permanently remove your account and all data. cannot be undone.
-              </p>
-              <button class="px-4 py-2 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700">
-                delete account
-              </button>
-            </div>
+                <div class="rounded-xl border border-red-300 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-5">
+                  <h4 class="font-display text-lg text-red-700 dark:text-red-400 mb-1">
+                    {t('settings-delete-title')}
+                  </h4>
+                  <p class="text-sm text-stone-500 mb-3">{t('settings-delete-sub')}</p>
+                  <button class="px-4 py-2 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700">
+                    {t('settings-delete-btn')}
+                  </button>
+                </div>
 
-            <Show when={err()}>
-              <div class="mt-4 text-sm text-red-600 dark:text-red-400">{err()}</div>
-            </Show>
-          </Show>
+                <Show when={err()}>
+                  <div class="mt-4 text-sm text-red-600 dark:text-red-400">{err()}</div>
+                </Show>
+              </Show>
             </div>
           </main>
         </div>
