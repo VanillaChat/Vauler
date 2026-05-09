@@ -27,7 +27,7 @@ export function useChannel(
 export function useGuildUsers(guildId: () => string | undefined) {
   return createMemo<GatewayUser[]>(() => {
     const g = guilds().find((g) => g.id === guildId());
-    if (!g) return [];
+    if (!g || !g.members) return [];
     const presence = new Map(ready()?.presences.map((p) => [p.userId, p.status]) ?? []);
     return g.members.map<GatewayUser>((m) => ({
       ...m.user,

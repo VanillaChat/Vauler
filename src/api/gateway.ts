@@ -100,6 +100,66 @@ const handlers = new Set<(msg: GatewayMessage) => void>();
 export const gatewayState = state;
 export const ready = readyData;
 
+export function addGuild(guild: GatewayGuild) {
+  const r = readyData();
+  if (!r) return;
+  const safe: GatewayGuild = {
+    ...guild,
+    channels: guild.channels ?? [],
+    members: guild.members ?? [],
+  };
+  const idx = r.guilds.findIndex((g) => g.id === safe.id);
+  if (idx !== -1) {
+    const old = r.guilds[idx];
+    const merged: GatewayGuild = {
+      ...old,
+      ...safe,
+      channels: safe.channels.length > 0 ? safe.channels : old.channels,
+      members: safe.members.length > 0 ? safe.members : old.members,
+    };
+    const newGuilds = [...r.guilds];
+    newGuilds[idx] = merged;
+    setReadyData({ ...r, guilds: newGuilds });
+    return;
+  }
+  setReadyData({ ...r, guilds: [...r.guilds, safe] });
+}
+
+export function removeGuild(guildId: string) {
+  const r = readyData();
+  if (!r) return;
+  setReadyData({ ...r, guilds: r.guilds.filter((g) => g.id !== guildId) });
+}
+
+export function addGuildMember(guildId: string, member: GatewayMember) {
+  const r = readyData();
+  if (!r) return;
+  const idx = r.guilds.findIndex((g) => g.id === guildId);
+  if (idx === -1) return;
+  const guild = r.guilds[idx];
+  const existing = guild.members ?? [];
+  if (existing.some((m) => m.userId === member.userId)) return;
+  const newGuild = { ...guild, members: [...existing, member] };
+  const newGuilds = [...r.guilds];
+  newGuilds[idx] = newGuild;
+  setReadyData({ ...r, guilds: newGuilds });
+}
+
+export function removeGuildMember(guildId: string, userId: string) {
+  const r = readyData();
+  if (!r) return;
+  const idx = r.guilds.findIndex((g) => g.id === guildId);
+  if (idx === -1) return;
+  const guild = r.guilds[idx];
+  const newGuild = {
+    ...guild,
+    members: (guild.members ?? []).filter((m) => m.userId !== userId),
+  };
+  const newGuilds = [...r.guilds];
+  newGuilds[idx] = newGuild;
+  setReadyData({ ...r, guilds: newGuilds });
+}
+
 function resolveGatewayUrl(): string {
   const url = process.env.GATEWAY_URL;
   if (url.startsWith('ws://') || url.startsWith('wss://')) return url;
@@ -148,6 +208,53 @@ function handleMessage(msg: GatewayMessage) {
   if (msg.op === OP_DISPATCH && msg.t === 'READY') {
     setReadyData(msg.d as ReadyPayload);
     setState('ready');
+    return;
+  }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'GUILD_CREATE') {
+    const d = msg.d as
+      | (GatewayGuild & { guild?: GatewayGuild; channels?: GatewayChannel[]; members?: GatewayMember[] })
+      | undefined;
+    if (!d) return;
+    const inner = d.guild ?? d;
+    const channels = d.channels ?? inner?.channels ?? [];
+    const members = d.members ?? inner?.members ?? [];
+    if (inner?.id) {
+      addGuild({ ...inner, channels, members });
+    }
+    return;
+  }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'GUILD_DELETE') {
+    const guildId = (msg.d as { id?: string } | undefined)?.id;
+    if (guildId) removeGuild(guildId);
+    return;
+  }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'GUILD_MEMBER_ADD') {
+    const d = msg.d as
+      | {
+          guildId: string;
+          nickname: string | null;
+          userId: string;
+          user: GatewayUser;
+        }
+      | undefined;
+    if (d?.guildId && d?.user) {
+      addGuildMember(d.guildId, {
+        id: 0,
+        nickname: d.nickname ?? null,
+        userId: d.userId,
+        joinedAt: new Date().toISOString(),
+        user: d.user,
+      });
+    }
+    return;
+  }
+
+  if (msg.op === OP_DISPATCH && msg.t === 'GUILD_MEMBER_REMOVE') {
+    const d = msg.d as { guildId?: string; userId?: string } | undefined;
+    if (d?.guildId && d?.userId) removeGuildMember(d.guildId, d.userId);
     return;
   }
 }

@@ -16,6 +16,7 @@ import {
 } from 'solid-js';
 import { connect, disconnect, type GatewayUser } from '../api/gateway';
 import { statusColors, statusLabels } from '../components/Avatar';
+import { ServerModal } from '../components/ServerModal';
 import { ProfileContext } from '../contexts/profile';
 import { colorForId, guilds } from '../state/gateway-data';
 
@@ -39,6 +40,7 @@ function AppLayout() {
 
   const [profileUser, setProfileUser] = createSignal<GatewayUser | null>(null);
   const [profilePos, setProfilePos] = createSignal({ x: 0, y: 0 });
+  const [serverModalOpen, setServerModalOpen] = createSignal(false);
   let popoverEl: HTMLDivElement | undefined;
 
   const openProfile = (
@@ -150,6 +152,7 @@ function AppLayout() {
             }}
           </For>
           <button
+            onClick={() => setServerModalOpen(true)}
             class="w-12 h-12 rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 text-stone-400 hover:border-[#c9a942] hover:text-[#c9a942] hover:bg-[#f7e26c]/10 transition-colors flex items-center justify-center"
             title="Add server"
           >
@@ -158,6 +161,19 @@ function AppLayout() {
         </nav>
 
         <Outlet />
+
+        <Show when={serverModalOpen()}>
+          <ServerModal
+            onClose={() => setServerModalOpen(false)}
+            onCreated={(id) =>
+              navigate({
+                to: '/app/$serverId',
+                params: { serverId: id },
+                viewTransition: false,
+              })
+            }
+          />
+        </Show>
 
         <Show when={profileUser()}>
           {(u) => (
