@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/solid-router';
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { ApiError } from '../api/client';
-import type { GatewayUser } from '../api/gateway';
+import { gatewayState, type GatewayUser } from '../api/gateway';
 import { createChannelInvite } from '../api/invites';
 import {
   createMessage,
@@ -86,6 +86,7 @@ function ChannelView() {
   const PAGE_SIZE = 50;
 
   const loadInitial = async (id: string) => {
+    if (gatewayState() !== 'ready') return;
     if (isChannelLoaded(id) || loadingHistory()) return;
     setLoadingHistory(true);
     try {
@@ -105,6 +106,7 @@ function ChannelView() {
 
   const loadOlder = async () => {
     const id = params().channelId;
+    if (gatewayState() !== 'ready') return;
     if (loadingOlder() || isChannelExhausted(id)) return;
     const list = messages();
     const oldest = list[0];
@@ -131,6 +133,7 @@ function ChannelView() {
   createEffect(() => {
     const id = params().channelId;
     if (!id) return;
+    if (gatewayState() !== 'ready') return;
     loadInitial(id);
   });
 
@@ -397,6 +400,7 @@ function ChannelView() {
   const onDraftInput = (value: string) => {
     setDraft(value);
     if (!value.trim()) return;
+    if (gatewayState() !== 'ready') return;
     const now = Date.now();
     if (now - lastTypingAt >= 1000) {
       lastTypingAt = now;
