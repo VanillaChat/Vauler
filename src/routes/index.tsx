@@ -262,7 +262,7 @@ function OpenSource() {
             </a>
             <div class="mt-4 inline-flex items-center gap-2 text-xs font-mono text-stone-400">
               <span class="opacity-60">$</span>
-              <span>git clone vauler</span>
+              <span class="mr-5">git clone Vanilla</span>
             </div>
           </div>
         </div>
