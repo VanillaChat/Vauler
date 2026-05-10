@@ -222,11 +222,19 @@ slowmode-left = { $time } left
 slowmode-bypassed = bypassed
 
 # context menu
+context-reply = reply
 context-copy-text = copy text
 context-copy-id = copy id
 context-copy-link = copy link
 context-edit = edit
 context-delete = delete
+
+# replies
+reply-to = replying to { $name }
+reply-cancel = cancel reply
+reply-deleted = original message deleted
+reply-click-to-jump = click to jump
+reply-jump-unavailable = original message not loaded
 
 # delete modal
 delete-title = delete this message?

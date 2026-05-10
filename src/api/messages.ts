@@ -10,6 +10,12 @@ export type MessageAuthor = {
   member?: { nickname: string | null } | null;
 };
 
+export type MessageReference = {
+  messageId?: string;
+  channelId?: string;
+  guildId?: string;
+};
+
 export type Message = {
   id: string;
   channelId: string;
@@ -21,11 +27,14 @@ export type Message = {
   type?: string;
   nonce?: string | null;
   author?: MessageAuthor;
+  messageReference?: MessageReference | null;
+  referencedMessage?: Message | null;
 };
 
 export type CreateMessageRequest = {
   content: string;
   nonce: string;
+  messageReference?: { messageId: string };
 };
 
 export function createMessage(

@@ -6,9 +6,11 @@ import { gatewayState, type GatewayUser } from '../api/gateway';
 import { createChannelInvite } from '../api/invites';
 import {
   createMessage,
+  type CreateMessageRequest,
   deleteMessage,
   editMessage,
   fetchMessages,
+  type Message,
   sendTyping,
 } from '../api/messages';
 import { Avatar } from '../components/Avatar';
@@ -81,7 +83,11 @@ function ChannelView() {
   const [loadingOlder, setLoadingOlder] = createSignal(false);
   const [atBottom, setAtBottom] = createSignal(true);
   const [unread, setUnread] = createSignal(0);
+  const [replyingTo, setReplyingTo] = createSignal<Message | null>(null);
+  const [highlightId, setHighlightId] = createSignal<string | null>(null);
   let scrollEl: HTMLDivElement | undefined;
+  let composerEl: HTMLTextAreaElement | undefined;
+  let highlightTimer: number | null = null;
 
   const PAGE_SIZE = 50;
 
@@ -181,6 +187,37 @@ function ChannelView() {
     setUnread(0);
   };
 
+  const jumpToMessage = (id: string) => {
+    if (!scrollEl) return;
+    const el = scrollEl.querySelector<HTMLElement>(`[data-message-id="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (highlightTimer !== null) clearTimeout(highlightTimer);
+    setHighlightId(id);
+    highlightTimer = window.setTimeout(() => {
+      setHighlightId(null);
+      highlightTimer = null;
+    }, 1600);
+  };
+
+  const startReply = (msg: Message) => {
+    setReplyingTo(msg);
+    requestAnimationFrame(() => composerEl?.focus());
+  };
+  const cancelReply = () => setReplyingTo(null);
+
+  createEffect(
+    on(
+      () => params().channelId,
+      () => setReplyingTo(null),
+      { defer: true },
+    ),
+  );
+
+  onCleanup(() => {
+    if (highlightTimer !== null) clearTimeout(highlightTimer);
+  });
+
   const [inviteCode, setInviteCode] = createSignal<string | null>(null);
   const [inviteLoading, setInviteLoading] = createSignal(false);
   const [inviteError, setInviteError] = createSignal<string | null>(null);
@@ -274,7 +311,7 @@ function ChannelView() {
       ctxCloseTimer = null;
     }
     const W = 208;
-    const H = mine ? 248 : 156;
+    const H = mine ? 296 : 204;
     const x = Math.max(8, Math.min(e.clientX, window.innerWidth - W - 8));
     const y = Math.max(8, Math.min(e.clientY, window.innerHeight - H - 8));
     setCtxClosing(false);
@@ -414,11 +451,14 @@ function ChannelView() {
     if (!text || sending() || cooldown() > 0) return;
     const channelId = params().channelId;
     const nonce = lastMsgId() || `n-${Date.now()}`;
+    const reply = replyingTo();
     setDraft('');
     setSending(true);
     setSendError(null);
     try {
-      const msg = await createMessage(channelId, { content: text, nonce });
+      const payload: CreateMessageRequest = { content: text, nonce };
+      if (reply) payload.messageReference = { messageId: reply.id };
+      const msg = await createMessage(channelId, payload);
       if (msg?.id) {
         addMessage(msg);
         setLastMsgId(msg.id);
@@ -426,6 +466,7 @@ function ChannelView() {
           recordSent(channelId);
           setNow(Date.now());
         }
+        setReplyingTo(null);
       }
     } catch (err) {
       setSendError(
@@ -574,9 +615,12 @@ function ChannelView() {
                 hour: '2-digit',
                 minute: '2-digit',
               });
+              const hasReply = () =>
+                !!m.referencedMessage || !!m.messageReference?.messageId;
               const isHead = createMemo(() => {
                 const prev = messages()[i() - 1];
                 if (!prev) return true;
+                if (hasReply()) return true;
                 if (compactMode()) return false;
                 if (prev.authorId !== m.authorId) return true;
                 return (
@@ -588,27 +632,88 @@ function ChannelView() {
               const isEditing = () => editingId() === m.id;
 
               const Toolbar = () => (
-                <Show when={isMine() && !isEditing()}>
+                <Show when={!isEditing()}>
                   <div class="absolute -top-3 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-md overflow-hidden z-10">
                     <button
                       type="button"
-                      onClick={() => startEdit(m.id, m.content)}
+                      onClick={() => startReply(m)}
                       class="w-8 h-8 flex items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300"
-                      title={t('context-edit')}
+                      title={t('context-reply')}
                     >
-                      <i class="fa-solid fa-pen text-xs" />
+                      <i class="fa-solid fa-reply text-xs" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(m.id, m.content)}
-                      class="w-8 h-8 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 border-l border-stone-200 dark:border-stone-700"
-                      title={t('context-delete')}
-                    >
-                      <i class="fa-solid fa-trash text-xs" />
-                    </button>
+                    <Show when={isMine()}>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(m.id, m.content)}
+                        class="w-8 h-8 flex items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border-l border-stone-200 dark:border-stone-700"
+                        title={t('context-edit')}
+                      >
+                        <i class="fa-solid fa-pen text-xs" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(m.id, m.content)}
+                        class="w-8 h-8 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 border-l border-stone-200 dark:border-stone-700"
+                        title={t('context-delete')}
+                      >
+                        <i class="fa-solid fa-trash text-xs" />
+                      </button>
+                    </Show>
                   </div>
                 </Show>
               );
+
+              const ReplyPreview = () => {
+                const ref = m.referencedMessage;
+                if (!ref && !m.messageReference?.messageId) return null;
+                const refAuthorName = () => {
+                  if (!ref) return null;
+                  const cached = getUser(ref.authorId);
+                  return (
+                    ref.author?.member?.nickname ??
+                    cached?.username ??
+                    ref.author?.username ??
+                    '?'
+                  );
+                };
+                const refAvatarUser = () => {
+                  if (!ref) return null;
+                  const cached = getUser(ref.authorId);
+                  return {
+                    id: ref.authorId,
+                    username: cached?.username ?? ref.author?.username ?? '?',
+                    avatar: cached?.avatar ?? ref.author?.avatar ?? null,
+                  };
+                };
+                const targetId = ref?.id ?? m.messageReference?.messageId;
+                const onJump = () => {
+                  if (targetId) jumpToMessage(targetId);
+                };
+                return (
+                  <div class="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mb-1 pl-3 relative">
+                    <span class="absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2 border-l-2 border-t-2 border-stone-300 dark:border-stone-600 rounded-tl-md" />
+                    <Show when={ref} fallback={
+                      <span class="italic">{t('reply-deleted')}</span>
+                    }>
+                      {(r) => (
+                        <button
+                          type="button"
+                          onClick={onJump}
+                          class="flex items-center gap-1.5 min-w-0 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+                          title={t('reply-click-to-jump')}
+                        >
+                          <Avatar user={refAvatarUser()!} size={16} />
+                          <span class="font-display font-medium shrink-0">
+                            @{refAuthorName()}
+                          </span>
+                          <span class="truncate opacity-80">{r().content}</span>
+                        </button>
+                      )}
+                    </Show>
+                  </div>
+                );
+              };
 
               const Content = () => (
                 <Show when={isEditing()} fallback={m.content}>
@@ -642,12 +747,19 @@ function ChannelView() {
                 </Show>
               );
 
+              const isHighlighted = () => highlightId() === m.id;
+
               return (
                 <Show
                   when={isHead()}
                   fallback={
                     <div
+                      data-message-id={m.id}
                       class="relative flex group hover:bg-[#f7e26c]/15 dark:hover:bg-stone-800/60 hover:shadow-[inset_3px_0_0_#f7e26c] -mx-3 px-3 py-0.5 rounded-md transition-all"
+                      classList={{
+                        'bg-[#f7e26c]/30 dark:bg-[#f7e26c]/20 shadow-[inset_3px_0_0_#f7e26c]':
+                          isHighlighted(),
+                      }}
                       onContextMenu={(e) => openCtxMenu(e, m.id, m.content, isMine())}
                     >
                       <Toolbar />
@@ -661,30 +773,38 @@ function ChannelView() {
                   }
                 >
                   <div
-                    class="relative flex gap-3 group hover:bg-[#f7e26c]/15 dark:hover:bg-stone-800/60 hover:shadow-[inset_3px_0_0_#f7e26c] -mx-3 px-3 py-2 mt-2 rounded-xl transition-all"
+                    data-message-id={m.id}
+                    class="relative group hover:bg-[#f7e26c]/15 dark:hover:bg-stone-800/60 hover:shadow-[inset_3px_0_0_#f7e26c] -mx-3 px-3 py-2 mt-2 rounded-xl transition-all"
+                    classList={{
+                      'bg-[#f7e26c]/30 dark:bg-[#f7e26c]/20 shadow-[inset_3px_0_0_#f7e26c]':
+                        isHighlighted(),
+                    }}
                     onContextMenu={(e) => openCtxMenu(e, m.id, m.content, isMine())}
                   >
                     <Toolbar />
-                    <button
-                      onClick={(e) => profile.open(profileUser(), e, true)}
-                      class="shrink-0"
-                    >
-                      <Avatar user={avatarUser()} status={liveStatus()} size={38} />
-                    </button>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-baseline gap-2">
-                        <button
-                          onClick={(e) => profile.open(profileUser(), e, true)}
-                          class="font-display text-base hover:underline underline-offset-2"
-                        >
-                          {displayName()}
-                        </button>
-                        <span class="text-xs text-stone-400 font-display italic">
-                          {fullTime}
-                        </span>
-                      </div>
-                      <div class="text-stone-700 dark:text-stone-300 leading-relaxed text-[0.95rem] break-words mt-0.5 whitespace-pre-wrap">
-                        <Content />
+                    <ReplyPreview />
+                    <div class="flex gap-3">
+                      <button
+                        onClick={(e) => profile.open(profileUser(), e, true)}
+                        class="shrink-0"
+                      >
+                        <Avatar user={avatarUser()} status={liveStatus()} size={38} />
+                      </button>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline gap-2">
+                          <button
+                            onClick={(e) => profile.open(profileUser(), e, true)}
+                            class="font-display text-base hover:underline underline-offset-2"
+                          >
+                            {displayName()}
+                          </button>
+                          <span class="text-xs text-stone-400 font-display italic">
+                            {fullTime}
+                          </span>
+                        </div>
+                        <div class="text-stone-700 dark:text-stone-300 leading-relaxed text-[0.95rem] break-words mt-0.5 whitespace-pre-wrap">
+                          <Content />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -760,7 +880,41 @@ function ChannelView() {
       </Show>
 
       <form onSubmit={onSend} class="px-3 sm:px-6 pb-3 sm:pb-5 pt-2 shrink-0">
-        <div class="flex items-stretch gap-2 rounded-2xl bg-[#fdfaf3] dark:bg-stone-900 px-3 py-2 focus-within:bg-white dark:focus-within:bg-stone-800 transition-colors shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] focus-within:shadow-[inset_0_0_0_1.5px_#f7e26c]">
+        <Show when={replyingTo()}>
+          {(r) => {
+            const refUser = () => getUser(r().authorId);
+            const refName = () =>
+              r().author?.member?.nickname ??
+              refUser()?.username ??
+              r().author?.username ??
+              '?';
+            return (
+              <div class="flex items-center gap-2 px-3 py-1.5 -mb-1 rounded-t-2xl bg-[#fdfaf3] dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 text-xs text-stone-500 dark:text-stone-400">
+                <i class="fa-solid fa-reply text-[#a37b00] dark:text-[#f7e26c]" />
+                <span class="truncate">
+                  {t('reply-to', { name: refName() })}
+                  <span class="opacity-70"> · {r().content}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={cancelReply}
+                  class="ml-auto w-6 h-6 flex items-center justify-center rounded-md hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-500 hover:text-stone-800 dark:hover:text-stone-100 shrink-0"
+                  title={t('reply-cancel')}
+                  aria-label={t('reply-cancel')}
+                >
+                  <i class="fa-solid fa-xmark text-xs" />
+                </button>
+              </div>
+            );
+          }}
+        </Show>
+        <div
+          class="flex items-stretch gap-2 bg-[#fdfaf3] dark:bg-stone-900 px-3 py-2 focus-within:bg-white dark:focus-within:bg-stone-800 transition-colors shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] focus-within:shadow-[inset_0_0_0_1.5px_#f7e26c]"
+          classList={{
+            'rounded-2xl': !replyingTo(),
+            'rounded-b-2xl': !!replyingTo(),
+          }}
+        >
           <button
             type="button"
             class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 self-start mt-2"
@@ -769,6 +923,7 @@ function ChannelView() {
             <i class="fa-solid fa-paperclip" />
           </button>
           <textarea
+            ref={composerEl}
             placeholder={t('composer-placeholder', { name: channel()?.name ?? '' })}
             value={draft()}
             rows={1}
@@ -782,6 +937,10 @@ function ChannelView() {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 onSend(e);
+              }
+              if (e.key === 'Escape' && replyingTo() && !draft()) {
+                e.preventDefault();
+                cancelReply();
               }
             }}
             class="flex-1 bg-transparent outline-none text-sm placeholder:text-stone-400 placeholder:italic placeholder:font-display resize-none py-2 leading-relaxed"
@@ -830,6 +989,19 @@ function ChannelView() {
               'transform-origin': 'top left',
             }}
           >
+            <button
+              type="button"
+              onClick={() => {
+                const target = messages().find((x) => x.id === menu().messageId);
+                closeCtxMenu();
+                if (target) startReply(target);
+              }}
+              class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-stone-100 dark:hover:bg-stone-800/60 text-left text-stone-700 dark:text-stone-200"
+            >
+              <i class="fa-solid fa-reply text-xs w-4 text-stone-500" />
+              <span>{t('context-reply')}</span>
+            </button>
+            <div class="my-1 h-px bg-stone-100 dark:bg-stone-800" />
             <button
               type="button"
               onClick={() => {
