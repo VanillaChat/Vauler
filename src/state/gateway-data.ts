@@ -31,7 +31,7 @@ export function useGuildUsers(guildId: () => string | undefined) {
     const presence = new Map(ready()?.presences.map((p) => [p.userId, p.status]) ?? []);
     return g.members.map<GatewayUser>((m) => ({
       ...m.user,
-      status: presence.get(m.user.id) ?? m.user.status,
+      status: presence.get(m.user.id) ?? 'UNAVAILABLE',
     }));
   });
 }

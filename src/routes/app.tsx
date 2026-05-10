@@ -309,9 +309,9 @@ function AppLayout() {
       const presenceStatus = r.presences?.find((p) => p.userId === u.id)?.status;
       for (const guild of r.guilds) {
         const m = guild.members?.find((mm) => mm.userId === u.id);
-        if (m) return { ...m.user, status: presenceStatus ?? m.user.status };
+        if (m) return { ...m.user, status: presenceStatus ?? 'UNAVAILABLE' };
       }
-      if (presenceStatus) return { ...u, status: presenceStatus };
+      return { ...u, status: presenceStatus ?? 'UNAVAILABLE' };
     }
     return u;
   });
