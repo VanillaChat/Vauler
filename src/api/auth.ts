@@ -42,3 +42,35 @@ export function login(payload: LoginRequest): Promise<LoginResponse> {
 export function logout(): Promise<void> {
   return api<void>('/auth/logout', { method: 'POST' });
 }
+
+export type Session = {
+  user: {
+    id: string;
+    username: string;
+    tag: string;
+    createdAt: number;
+    bot: boolean;
+    status: string;
+    flags: number;
+    bio: string | null;
+    avatar: string | null;
+    banner: string | null;
+  };
+  account: {
+    id: string;
+    email: string;
+    emailVerified: boolean;
+    locale: string;
+  };
+  settings: {
+    theme: string;
+    compactMode: boolean;
+    compactShowAvatars: boolean;
+    pendingDeletion: string | null;
+    deleteAt: number | null;
+  };
+};
+
+export function getSession(): Promise<Session> {
+  return api<Session>('/auth/session', { method: 'GET' });
+}

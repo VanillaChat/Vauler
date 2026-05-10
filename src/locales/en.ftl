@@ -1,6 +1,43 @@
 # brand
 brand-name = Vanilla
 
+# home
+home-eyebrow = chat, but cozy.
+home-headline-a = A quieter place
+home-headline-b = to talk with your people.
+home-sub = Vanilla is group chat without the noise — warm rooms, voice that just works, and no algorithm telling you what to care about.
+home-cta-primary = Get started
+home-cta-secondary = I have an account
+home-cta-open = Open Vanilla
+home-trust = free · open · no ads, ever
+
+home-feature-rooms-title = Rooms, not feeds.
+home-feature-rooms-body = Servers, channels, threads. Conversation that stays where you left it. No infinite scroll trying to keep you hostage.
+
+home-feature-voice-title = Voice that just works.
+home-feature-voice-body = Drop into a room, talk, drop out. Low-latency audio with zero setup ceremony. Push-to-talk if you're shy.
+
+home-feature-private-title = Private by default.
+home-feature-private-body = Your DMs are yours. Your servers are yours. We don't read them, train on them, or sell them. Ever.
+
+home-section-built-title = Built for the small group chats.
+home-section-built-body = Five friends planning a trip. A book club of twelve. A guild of forty. Vanilla is sized for the people you actually know.
+
+home-stat-rooms = warm rooms
+home-stat-latency = ms voice
+home-stat-ads = ads, ever
+
+home-final-headline = Pull up a chair.
+home-final-sub = Make an account in under a minute. Bring your friends. Stay as long as you like.
+home-final-cta = Create your account
+
+# open source
+home-oss-eyebrow = open source
+home-oss-title = Read the code. Bend it. Send a patch.
+home-oss-body = Vanilla is built in the open. Every line of the app lives on GitHub — fork it, file an issue, or just lurk.
+home-oss-cta = View on GitHub
+home-oss-meta = AGPL-3.0 licensed · contributions welcome
+
 # auth — common
 auth-email = email
 auth-password = password
