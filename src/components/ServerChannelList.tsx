@@ -2,6 +2,7 @@ import { Link } from '@tanstack/solid-router';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import type { GatewayUser } from '../api/gateway';
 import { Avatar, statusColors, statusLabels } from './Avatar';
+import { useLayout } from '../contexts/layout';
 import { t } from '../i18n';
 import { colorForId, currentUser, guilds } from '../state/gateway-data';
 
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function ServerChannelList(props: Props) {
+  const layout = useLayout();
   const [overrides, setOverrides] = createSignal<Record<string, boolean>>({});
 
   const isExpanded = (id: string) => {
@@ -30,7 +32,10 @@ export function ServerChannelList(props: Props) {
   };
 
   return (
-    <aside class="w-72 shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col rounded-3xl my-3 ml-3 mr-2 shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden">
+    <aside
+      class="w-72 max-w-[85vw] shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col rounded-3xl my-3 ml-3 mr-2 shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden fixed inset-y-0 left-0 z-40 lg:relative lg:transform-none"
+      style={layout.leftStyle()}
+    >
       <Link
         to="/"
         class="px-7 pt-7 pb-6 flex items-center shrink-0"

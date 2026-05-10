@@ -12,6 +12,7 @@ import {
   onCleanup,
   onMount,
   Show,
+  type JSX,
 } from 'solid-js';
 import {
   connect,
@@ -25,6 +26,7 @@ import { CreateChannelModal } from '../components/CreateChannelModal';
 import { ServerChannelList } from '../components/ServerChannelList';
 import { ServerModal } from '../components/ServerModal';
 import { SettingsModal } from '../components/SettingsModal';
+import { LayoutContext } from '../contexts/layout';
 import { ProfileContext } from '../contexts/profile';
 import { colorForId, currentUser, guilds } from '../state/gateway-data';
 import { ready } from '../api/gateway';
@@ -55,6 +57,83 @@ function AppLayout() {
   const currentChannelId = createMemo<string | undefined>((prev) => {
     const id = channelMatch()?.params.channelId;
     return id ?? prev;
+  });
+
+  const [sidebarOpen, setSidebarOpen] = createSignal(false);
+  const [membersOpen, setMembersOpen] = createSignal(false);
+  const [drag, setDrag] = createSignal<{
+    side: 'left' | 'right';
+    px: number;
+  } | null>(null);
+  const [isMobile, setIsMobile] = createSignal(
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : true,
+  );
+  const [vw, setVw] = createSignal(
+    typeof window !== 'undefined' ? window.innerWidth : 1024,
+  );
+
+  const LEFT_W = () => Math.min(288, Math.round(vw() * 0.85));
+  const RIGHT_W = () => Math.min(256, Math.round(vw() * 0.85));
+
+  const leftOffsetPx = () => {
+    if (!isMobile()) return 0;
+    const base = sidebarOpen() ? 0 : -LEFT_W();
+    const d = drag();
+    if (d?.side === 'left') {
+      return Math.max(-LEFT_W(), Math.min(0, base + d.px));
+    }
+    return base;
+  };
+
+  const rightOffsetPx = () => {
+    if (!isMobile()) return 0;
+    const base = membersOpen() ? 0 : RIGHT_W();
+    const d = drag();
+    if (d?.side === 'right') {
+      return Math.max(0, Math.min(RIGHT_W(), base + d.px));
+    }
+    return base;
+  };
+
+  const contentOffsetPx = () => {
+    if (!isMobile()) return 0;
+    return LEFT_W() + leftOffsetPx() + rightOffsetPx() - RIGHT_W();
+  };
+
+  const transitionStyle = () =>
+    drag() ? 'none' : 'transform 220ms cubic-bezier(0.32, 0.72, 0, 1)';
+
+  const leftStyle = (): JSX.CSSProperties => {
+    if (!isMobile()) return { transform: 'none', transition: 'none' };
+    return {
+      transform: `translate3d(${leftOffsetPx()}px, 0, 0)`,
+      transition: transitionStyle(),
+    };
+  };
+  const rightStyle = (): JSX.CSSProperties => {
+    if (!isMobile()) return { transform: 'none', transition: 'none' };
+    return {
+      transform: `translate3d(${rightOffsetPx()}px, 0, 0)`,
+      transition: transitionStyle(),
+    };
+  };
+  const contentStyle = (): JSX.CSSProperties => {
+    if (!isMobile()) return { transform: 'none', transition: 'none' };
+    return {
+      transform: `translate3d(${contentOffsetPx()}px, 0, 0)`,
+      transition: transitionStyle(),
+      'will-change': 'transform',
+    };
+  };
+
+  createEffect(() => {
+    currentChannelId();
+    setSidebarOpen(false);
+    setMembersOpen(false);
+  });
+  createEffect(() => {
+    currentServerId();
+    setMembersOpen(false);
   });
 
   const [profileUser, setProfileUser] = createSignal<GatewayUser | null>(null);
@@ -248,6 +327,156 @@ function AppLayout() {
     onCleanup(() => document.removeEventListener('mousedown', handler));
   });
 
+  onMount(() => {
+    const sync = () => {
+      setVw(window.innerWidth);
+      setIsMobile(window.innerWidth < 1024);
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    onCleanup(() => window.removeEventListener('resize', sync));
+
+    let startX = 0;
+    let startY = 0;
+    let lastX = 0;
+    let lastT = 0;
+    let velocity = 0;
+    let startTime = 0;
+    let tracking = false;
+    let decided = false;
+    let side: 'left' | 'right' | null = null;
+
+    const insideHScroll = (target: EventTarget | null): boolean => {
+      let el = target as HTMLElement | null;
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el);
+        const ox = style.overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) {
+          return true;
+        }
+        el = el.parentElement;
+      }
+      return false;
+    };
+
+    const insideInteractive = (target: EventTarget | null): boolean => {
+      let el = target as HTMLElement | null;
+      while (el && el !== document.body) {
+        const tag = el.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        if (el.isContentEditable) return true;
+        el = el.parentElement;
+      }
+      return false;
+    };
+
+    const onStart = (e: TouchEvent) => {
+      if (!isMobile()) return;
+      if (e.touches.length !== 1) {
+        tracking = false;
+        return;
+      }
+      if (insideHScroll(e.target) || insideInteractive(e.target)) {
+        tracking = false;
+        return;
+      }
+      const tt = e.touches[0];
+      startX = tt.clientX;
+      startY = tt.clientY;
+      lastX = startX;
+      lastT = Date.now();
+      velocity = 0;
+      startTime = lastT;
+      tracking = true;
+      decided = false;
+      side = null;
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!tracking || e.touches.length !== 1) return;
+      const tt = e.touches[0];
+      const dx = tt.clientX - startX;
+      const dy = tt.clientY - startY;
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+
+      if (!decided && (adx > 8 || ady > 8)) {
+        if (adx <= ady) {
+          tracking = false;
+          return;
+        }
+        decided = true;
+        if (sidebarOpen()) side = 'left';
+        else if (membersOpen()) side = 'right';
+        else if (dx > 0) side = 'left';
+        else side = currentServerId() ? 'right' : null;
+        if (!side) {
+          tracking = false;
+          return;
+        }
+      }
+      if (!decided || !side) return;
+
+      const now = Date.now();
+      const ddx = tt.clientX - lastX;
+      const ddt = Math.max(1, now - lastT);
+      velocity = (ddx / ddt) * 0.5 + velocity * 0.5;
+      lastX = tt.clientX;
+      lastT = now;
+
+      setDrag({ side, px: dx });
+    };
+
+    const onEnd = () => {
+      if (!tracking) {
+        setDrag(null);
+        return;
+      }
+      tracking = false;
+      const d = drag();
+      if (!d || !side) {
+        setDrag(null);
+        return;
+      }
+
+      const dt = Date.now() - startTime;
+      const flick = Math.abs(velocity) > 0.5 && dt < 500;
+
+      if (side === 'left') {
+        const opening = !sidebarOpen();
+        const w = LEFT_W();
+        if (flick) {
+          setSidebarOpen(velocity > 0);
+        } else {
+          const progress = opening ? d.px / w : 1 + d.px / w;
+          setSidebarOpen(progress > 0.5);
+        }
+      } else {
+        const opening = !membersOpen();
+        const w = RIGHT_W();
+        if (flick) {
+          setMembersOpen(velocity < 0);
+        } else {
+          const progress = opening ? -d.px / w : 1 - d.px / w;
+          setMembersOpen(progress > 0.5);
+        }
+      }
+      setDrag(null);
+      side = null;
+    };
+
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    document.addEventListener('touchcancel', onEnd, { passive: true });
+    onCleanup(() => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onEnd);
+    });
+  });
+
   const onPickServer = (id: string) => {
     const g = guilds().find((g) => g.id === id);
     const first = g?.channels[0];
@@ -263,6 +492,28 @@ function AppLayout() {
   };
 
   return (
+    <LayoutContext.Provider
+      value={{
+        sidebarOpen,
+        setSidebarOpen,
+        toggleSidebar: () => {
+          const next = !sidebarOpen();
+          setSidebarOpen(next);
+          if (next) setMembersOpen(false);
+        },
+        membersOpen,
+        setMembersOpen,
+        toggleMembers: () => {
+          const next = !membersOpen();
+          setMembersOpen(next);
+          if (next) setSidebarOpen(false);
+        },
+        leftStyle,
+        rightStyle,
+        contentStyle,
+        isMobile,
+      }}
+    >
     <ProfileContext.Provider
       value={{
         open: openProfile,
@@ -272,7 +523,18 @@ function AppLayout() {
         },
       }}
     >
-      <div class="h-screen flex bg-[#fdfaf3] dark:bg-[#1a1816] text-stone-800 dark:text-stone-100 overflow-hidden">
+      <div class="h-dvh flex bg-[#fdfaf3] dark:bg-[#1a1816] text-stone-800 dark:text-stone-100 overflow-hidden">
+        <Show when={isMobile() && (sidebarOpen() || membersOpen() || drag())}>
+          <div
+            class="fixed inset-0 z-30 bg-stone-900/40 backdrop-blur-sm lg:hidden"
+            classList={{ 'animate-fade-in': !drag() }}
+            style={{ 'pointer-events': drag() ? 'none' : 'auto' }}
+            onClick={() => {
+              setSidebarOpen(false);
+              setMembersOpen(false);
+            }}
+          />
+        </Show>
         <Show when={connBarVisible()}>
           <div
             class={`fixed top-4 left-1/2 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-[#fdf6cc] dark:bg-[#3a3624] text-[#7a5a00] dark:text-[#e8d27a] border border-[#f0d96b]/60 dark:border-[#5a5028] shadow-lg shadow-black/10 backdrop-blur-sm text-sm font-medium ${
@@ -489,5 +751,6 @@ function AppLayout() {
         </Show>
       </div>
     </ProfileContext.Provider>
+    </LayoutContext.Provider>
   );
 }

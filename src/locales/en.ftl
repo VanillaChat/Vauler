@@ -258,3 +258,5 @@ app-tagline-sub = Uncomplicated.
 app-attach = Attach
 app-emoji = Emoji
 app-send = Send
+app-open-menu = Open menu
+app-close-menu = Close menu

@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/solid-router';
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { ApiError } from '../api/client';
 import type { GatewayUser } from '../api/gateway';
 import { createChannelInvite } from '../api/invites';
@@ -11,6 +12,7 @@ import {
   sendTyping,
 } from '../api/messages';
 import { Avatar } from '../components/Avatar';
+import { useLayout } from '../contexts/layout';
 import { useProfile } from '../contexts/profile';
 import { t } from '../i18n';
 import {
@@ -51,6 +53,7 @@ function ChannelView() {
   const guild = useGuild(() => params().serverId);
   const isOwner = () => guild()?.ownerId === currentUser()?.id;
   const profile = useProfile();
+  const layout = useLayout();
   const messages = createMemo(() => {
     const list = messageStore()[params().channelId] ?? [];
     return [...list].sort(
@@ -434,13 +437,24 @@ function ChannelView() {
   };
 
   return (
-    <main class="relative flex-1 min-w-0 flex flex-col my-3 mr-2 bg-white dark:bg-[#211e1b] rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden">
-      <header class="px-6 h-14 flex items-center gap-3 border-b border-stone-100 dark:border-stone-800 shrink-0">
+    <main
+      class="relative flex-1 min-w-0 flex flex-col my-2 mx-2 sm:my-3 sm:mr-2 sm:ml-0 bg-white dark:bg-[#211e1b] rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden"
+      style={layout.contentStyle()}
+    >
+      <header class="px-4 sm:px-6 h-14 flex items-center gap-3 border-b border-stone-100 dark:border-stone-800 shrink-0">
+        <button
+          type="button"
+          onClick={() => layout.toggleSidebar()}
+          class="lg:hidden -ml-1 w-9 h-9 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
+          aria-label={t('app-open-menu')}
+        >
+          <i class="fa-solid fa-bars text-base" />
+        </button>
         <Show when={channel()} fallback={<span class="text-sm text-stone-400 italic font-display">{t('app-channel-not-found')}</span>}>
           {(ch) => (
             <>
               <i class="fa-solid fa-hashtag text-stone-400 text-lg" />
-              <h2 class="font-display text-2xl">{ch().name}</h2>
+              <h2 class="font-display text-xl sm:text-2xl truncate min-w-0">{ch().name}</h2>
               <div class="flex-1" />
               <button
                 onClick={generateInvite}
@@ -451,13 +465,22 @@ function ChannelView() {
                 <i class="fa-solid fa-link" />
                 <span class="hidden sm:inline font-display italic">{t('invite-button')}</span>
               </button>
+              <button
+                type="button"
+                onClick={() => layout.toggleMembers()}
+                class="lg:hidden w-9 h-9 -mr-1 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
+                aria-label={t('members-room')}
+                title={t('members-room')}
+              >
+                <i class="fa-solid fa-users text-sm" />
+              </button>
             </>
           )}
         </Show>
       </header>
 
       <Show when={inviteCode() || inviteError()}>
-        <div class="px-6 py-3 border-b border-stone-100 dark:border-stone-800 bg-[#fdfaf3] dark:bg-stone-900/40">
+        <div class="px-4 sm:px-6 py-3 border-b border-stone-100 dark:border-stone-800 bg-[#fdfaf3] dark:bg-stone-900/40">
           <Show when={inviteCode()}>
             {(c) => (
               <div class="flex items-center gap-3">
@@ -499,7 +522,7 @@ function ChannelView() {
       <div
         ref={scrollEl}
         onScroll={onScroll}
-        class="flex-1 overflow-y-auto px-6 py-5"
+        class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-5"
       >
         <div class="min-h-full flex flex-col justify-end">
         <Show when={loadingOlder()}>
@@ -673,7 +696,7 @@ function ChannelView() {
         <button
           type="button"
           onClick={() => scrollToBottom(true)}
-          class="absolute right-6 bottom-24 z-10 flex items-center gap-2 px-3 py-2 rounded-full bg-white dark:bg-[#1a1816] border border-stone-200 dark:border-stone-800 shadow-lg shadow-black/15 text-stone-600 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 animate-fade-in"
+          class="absolute right-4 sm:right-6 bottom-20 sm:bottom-24 z-10 flex items-center gap-2 px-3 py-2 rounded-full bg-white dark:bg-[#1a1816] border border-stone-200 dark:border-stone-800 shadow-lg shadow-black/15 text-stone-600 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 animate-fade-in"
           title={t('app-jump-to-present')}
         >
           <i class="fa-solid fa-arrow-down text-xs" />
@@ -686,7 +709,7 @@ function ChannelView() {
       </Show>
 
       <Show when={typingText()}>
-        <div class="px-6 pt-1 pb-0.5 text-xs text-stone-500 italic font-display flex items-center gap-2">
+        <div class="px-4 sm:px-6 pt-1 pb-0.5 text-xs text-stone-500 italic font-display flex items-center gap-2">
           <span class="inline-flex gap-0.5">
             <span class="typing-dot" />
             <span class="typing-dot" />
@@ -697,7 +720,7 @@ function ChannelView() {
       </Show>
 
       <Show when={(channel()?.rateLimitPerUser ?? 0) > 0}>
-        <div class="px-6 pt-1 pb-0.5 flex items-center gap-1.5 text-xs text-stone-500">
+        <div class="px-4 sm:px-6 pt-1 pb-0.5 flex items-center gap-1.5 text-xs text-stone-500">
           <i
             class="fa-solid fa-stopwatch text-[#a37b00] dark:text-[#f7e26c]"
             classList={{ 'animate-pulse': cooldown() > 0 }}
@@ -721,7 +744,7 @@ function ChannelView() {
       </Show>
 
       <Show when={sendError()}>
-        <div class="px-6 py-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+        <div class="px-4 sm:px-6 py-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
           <span>{sendError()}</span>
           <button
             onClick={() => setSendError(null)}
@@ -732,7 +755,7 @@ function ChannelView() {
         </div>
       </Show>
 
-      <form onSubmit={onSend} class="px-6 pb-5 pt-2 shrink-0">
+      <form onSubmit={onSend} class="px-3 sm:px-6 pb-3 sm:pb-5 pt-2 shrink-0">
         <div class="flex items-stretch gap-2 rounded-2xl bg-[#fdfaf3] dark:bg-stone-900 px-3 py-2 focus-within:bg-white dark:focus-within:bg-stone-800 transition-colors shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] focus-within:shadow-[inset_0_0_0_1.5px_#f7e26c]">
           <button
             type="button"
@@ -791,6 +814,7 @@ function ChannelView() {
 
       <Show when={ctxMenu()}>
         {(menu) => (
+          <Portal>
           <div
             ref={ctxMenuEl}
             class={`fixed z-50 w-52 rounded-xl bg-white dark:bg-[#1a1816] border border-stone-200 dark:border-stone-800 shadow-xl shadow-black/15 p-1 ${
@@ -864,12 +888,13 @@ function ChannelView() {
               </button>
             </Show>
           </div>
+          </Portal>
         )}
       </Show>
 
       <Show when={deleteCandidate()}>
         {(c) => (
-          <>
+          <Portal>
             <div
               class={`fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm ${
                 deleteClosing() ? 'animate-fade-out' : 'animate-fade-in'
@@ -911,7 +936,7 @@ function ChannelView() {
                 </div>
               </div>
             </div>
-          </>
+          </Portal>
         )}
       </Show>
     </main>

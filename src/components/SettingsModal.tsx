@@ -93,21 +93,21 @@ export function SettingsModal(props: { onClose: () => void; closing?: boolean })
         }`}
         onClick={props.onClose}
       />
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none">
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 pointer-events-none">
         <div
-          class={`pointer-events-auto w-full max-w-4xl h-[80vh] rounded-3xl bg-[#fdfaf3] dark:bg-[#1a1816] shadow-2xl shadow-black/20 overflow-hidden flex ${
+          class={`pointer-events-auto w-full max-w-4xl h-[90vh] sm:h-[80vh] rounded-3xl bg-[#fdfaf3] dark:bg-[#1a1816] shadow-2xl shadow-black/20 overflow-hidden flex flex-col sm:flex-row ${
             props.closing ? 'animate-popover-out' : 'animate-popover-in'
           }`}
         >
-          <aside class="w-56 shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col px-3 py-5 gap-1 border-r border-stone-200 dark:border-stone-800">
-            <div class="px-3 mb-3">
+          <aside class="w-full sm:w-56 shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex sm:flex-col gap-1 px-3 py-3 sm:py-5 border-b sm:border-b-0 sm:border-r border-stone-200 dark:border-stone-800 overflow-x-auto sm:overflow-visible">
+            <div class="hidden sm:block px-3 mb-3">
               <h2 class="font-display text-2xl">{t('settings-title')}</h2>
             </div>
             <For each={SECTIONS}>
               {(item) => (
                 <button
                   onClick={() => setSection(item.id)}
-                  class={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-left ${
+                  class={`shrink-0 sm:w-full flex items-center gap-2 sm:gap-3 px-3 py-2 rounded-xl text-sm text-left ${
                     section() === item.id
                       ? 'bg-[#f7e26c] text-stone-900 font-medium'
                       : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/40 hover:text-stone-900 dark:hover:text-stone-100'
@@ -123,13 +123,13 @@ export function SettingsModal(props: { onClose: () => void; closing?: boolean })
           <main class="flex-1 min-w-0 overflow-y-auto relative">
             <button
               onClick={props.onClose}
-              class="absolute top-4 right-5 w-9 h-9 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center z-10"
+              class="absolute top-3 right-3 sm:top-4 sm:right-5 w-9 h-9 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center z-10"
               title={t('settings-close')}
             >
               <i class="fa-solid fa-xmark" />
             </button>
 
-            <div class="max-w-2xl mx-auto px-8 py-10">
+            <div class="max-w-2xl mx-auto px-5 sm:px-8 py-6 sm:py-10">
               <Show when={section() === 'account'}>
                 <h3 class="font-display text-3xl mb-1">{t('settings-account')}</h3>
                 <p class="text-sm text-stone-500 italic font-display mb-8">
