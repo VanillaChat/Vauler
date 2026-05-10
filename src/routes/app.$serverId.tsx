@@ -1,11 +1,10 @@
 import { createFileRoute, Outlet } from '@tanstack/solid-router';
 import { For, Show } from 'solid-js';
-import type { GatewayUser } from '../api/gateway';
 import { Avatar } from '../components/Avatar';
 import { useLayout } from '../contexts/layout';
 import { useProfile } from '../contexts/profile';
 import { t } from '../i18n';
-import { useGuildUsers } from '../state/gateway-data';
+import { useGuildUsers, type GuildMemberView } from '../state/gateway-data';
 
 export const Route = createFileRoute('/app/$serverId')({
   component: ServerLayout,
@@ -49,7 +48,7 @@ function ServerLayout() {
             <MemberGroup
               label={t('members-online')}
               items={onlineMembers()}
-              onSelect={profile.open}
+              onSelect={(m, e) => profile.open(m.user, e)}
             />
           </Show>
           <Show when={offlineMembers().length > 0}>
@@ -57,7 +56,7 @@ function ServerLayout() {
               label={t('members-offline')}
               items={offlineMembers()}
               muted
-              onSelect={profile.open}
+              onSelect={(m, e) => profile.open(m.user, e)}
             />
           </Show>
         </div>
@@ -68,9 +67,9 @@ function ServerLayout() {
 
 function MemberGroup(props: {
   label: string;
-  items: GatewayUser[];
+  items: GuildMemberView[];
   muted?: boolean;
-  onSelect: (u: GatewayUser, e: MouseEvent) => void;
+  onSelect: (u: GuildMemberView, e: MouseEvent) => void;
 }) {
   return (
     <div class="mb-4">
@@ -79,18 +78,18 @@ function MemberGroup(props: {
       </div>
       <div class="space-y-0.5">
         <For each={props.items}>
-          {(u) => (
+          {(m) => (
             <button
-              onClick={(e) => props.onSelect(u, e)}
+              onClick={(e) => props.onSelect(m, e)}
               class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm hover:bg-stone-100 dark:hover:bg-stone-800/40 cursor-pointer transition-colors text-left"
               classList={{ 'opacity-50': props.muted }}
             >
-              <Avatar user={u} size={30} />
+              <Avatar user={m.user} status={m.status} size={30} />
               <div class="flex-1 min-w-0">
-                <div class="truncate">{u.nickname ?? u.username}</div>
-                <Show when={u.bio}>
+                <div class="truncate">{m.nickname ?? m.user.username}</div>
+                <Show when={m.user.bio}>
                   <div class="text-xs text-stone-500 italic font-display truncate">
-                    {u.bio}
+                    {m.user.bio}
                   </div>
                 </Show>
               </div>

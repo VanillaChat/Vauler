@@ -1,10 +1,11 @@
 import { api } from './client';
-import type { GatewayChannel, GatewayGuild } from './gateway';
+import type { GatewayChannel, GatewayGuild, GatewayUser } from './gateway';
 
 export type ServerResponse = {
   code?: string;
   guild: Partial<GatewayGuild> & { id: string; name: string };
   channels?: GatewayChannel[];
+  users?: GatewayUser[];
 };
 
 export type CreateServerRequest = {

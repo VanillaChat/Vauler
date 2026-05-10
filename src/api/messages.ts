@@ -1,5 +1,4 @@
 import { api } from './client';
-import type { UserStatus } from './gateway';
 
 export type MessageAuthor = {
   id: string;
@@ -7,7 +6,6 @@ export type MessageAuthor = {
   tag: string;
   avatar?: string | null;
   bot: boolean;
-  status: UserStatus;
   flags: number;
   member?: { nickname: string | null } | null;
 };

@@ -20,11 +20,15 @@ export const statusLabels: Record<UserStatus, string> = {
 type AvatarUser = {
   id: string;
   username: string;
-  status: UserStatus;
   avatar?: string | null;
 };
 
-export function Avatar(props: { user: AvatarUser; size?: number; ringColor?: string }) {
+export function Avatar(props: {
+  user: AvatarUser;
+  status?: UserStatus;
+  size?: number;
+  ringColor?: string;
+}) {
   const size = props.size ?? 36;
   const bg = () => colorForId(props.user.id);
   return (
@@ -47,7 +51,7 @@ export function Avatar(props: { user: AvatarUser; size?: number; ringColor?: str
         style={{
           width: `${Math.max(8, size * 0.3)}px`,
           height: `${Math.max(8, size * 0.3)}px`,
-          'background-color': statusColors[props.user.status],
+          'background-color': statusColors[props.status ?? 'UNAVAILABLE'],
           'box-shadow': `0 0 0 2.5px ${props.ringColor ?? 'var(--page-bg)'}`,
         }}
       />

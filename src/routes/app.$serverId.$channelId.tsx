@@ -18,6 +18,7 @@ import { t } from '../i18n';
 import {
   compactMode,
   currentUser,
+  getUser,
   useChannel,
   useGuild,
   userPresence,
@@ -544,28 +545,27 @@ function ChannelView() {
           <For each={messages()}>
             {(m, i) => {
               const author = m.author;
-              const displayName = author?.member?.nickname ?? author?.username ?? '?';
-              const liveStatus = () =>
-                userPresence(m.authorId) ?? author?.status ?? 'UNAVAILABLE';
+              const cachedUser = () => getUser(m.authorId);
+              const displayName = () =>
+                author?.member?.nickname ?? cachedUser()?.username ?? author?.username ?? '?';
+              const liveStatus = () => userPresence(m.authorId) ?? 'UNAVAILABLE';
               const avatarUser = () => ({
                 id: m.authorId,
-                username: author?.username ?? '?',
-                status: liveStatus(),
-                avatar: author?.avatar ?? null,
+                username: cachedUser()?.username ?? author?.username ?? '?',
+                avatar: cachedUser()?.avatar ?? author?.avatar ?? null,
               });
-              const profileUser = (): GatewayUser => ({
-                id: m.authorId,
-                username: author?.username ?? '?',
-                tag: author?.tag ?? '',
-                createdAt: new Date(0),
-                bot: author?.bot ?? false,
-                status: liveStatus(),
-                flags: author?.flags ?? 0,
-                bio: null,
-                avatar: author?.avatar ?? null,
-                banner: null,
-                nickname: author?.member?.nickname ?? undefined,
-              });
+              const profileUser = (): GatewayUser =>
+                cachedUser() ?? {
+                  id: m.authorId,
+                  username: author?.username ?? '?',
+                  tag: author?.tag ?? '',
+                  createdAt: new Date(0),
+                  bot: author?.bot ?? false,
+                  flags: author?.flags ?? 0,
+                  bio: null,
+                  avatar: author?.avatar ?? null,
+                  banner: null,
+                };
               const fullTime = new Date(m.createdAt).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -665,7 +665,7 @@ function ChannelView() {
                       onClick={(e) => profile.open(profileUser(), e, true)}
                       class="shrink-0"
                     >
-                      <Avatar user={avatarUser()} size={38} />
+                      <Avatar user={avatarUser()} status={liveStatus()} size={38} />
                     </button>
                     <div class="flex-1 min-w-0">
                       <div class="flex items-baseline gap-2">
@@ -673,7 +673,7 @@ function ChannelView() {
                           onClick={(e) => profile.open(profileUser(), e, true)}
                           class="font-display text-base hover:underline underline-offset-2"
                         >
-                          {displayName}
+                          {displayName()}
                         </button>
                         <span class="text-xs text-stone-400 font-display italic">
                           {fullTime}

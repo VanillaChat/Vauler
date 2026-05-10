@@ -3,12 +3,18 @@ import {
   ready,
   type GatewayChannel,
   type GatewayGuild,
+  type GatewayMember,
   type GatewayUser,
   type UserStatus,
 } from '../api/gateway';
 
 export const currentUser = () => ready()?.user;
 export const guilds = () => ready()?.guilds ?? [];
+
+export function getUser(id: string | undefined): GatewayUser | undefined {
+  if (!id) return undefined;
+  return ready()?.users?.[id];
+}
 
 export function useGuild(id: () => string | undefined) {
   return createMemo<GatewayGuild | undefined>(() => guilds().find((g) => g.id === id()));
@@ -24,15 +30,21 @@ export function useChannel(
   });
 }
 
+export type GuildMemberView = GatewayMember & { user: GatewayUser; status: UserStatus };
+
 export function useGuildUsers(guildId: () => string | undefined) {
-  return createMemo<GatewayUser[]>(() => {
+  return createMemo<GuildMemberView[]>(() => {
+    const r = ready();
     const g = guilds().find((g) => g.id === guildId());
-    if (!g || !g.members) return [];
-    const presence = new Map(ready()?.presences.map((p) => [p.userId, p.status]) ?? []);
-    return g.members.map<GatewayUser>((m) => ({
-      ...m.user,
-      status: presence.get(m.user.id) ?? 'UNAVAILABLE',
-    }));
+    if (!g || !g.members || !r) return [];
+    const presence = new Map(r.presences?.map((p) => [p.id, p.status]) ?? []);
+    const out: GuildMemberView[] = [];
+    for (const m of g.members) {
+      const user = r.users?.[m.userId];
+      if (!user) continue;
+      out.push({ ...m, user, status: presence.get(m.userId) ?? 'UNAVAILABLE' });
+    }
+    return out;
   });
 }
 
@@ -60,7 +72,7 @@ export function isOnline(s: UserStatus): boolean {
 }
 
 export function userPresence(userId: string): UserStatus | undefined {
-  return ready()?.presences?.find((p) => p.userId === userId)?.status;
+  return ready()?.presences?.find((p) => p.id === userId)?.status;
 }
 
 export const compactMode = () => ready()?.settings?.compactMode ?? false;

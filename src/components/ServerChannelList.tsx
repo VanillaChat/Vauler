@@ -4,7 +4,7 @@ import type { GatewayUser } from '../api/gateway';
 import { Avatar, statusColors, statusLabels } from './Avatar';
 import { useLayout } from '../contexts/layout';
 import { t } from '../i18n';
-import { colorForId, currentUser, guilds } from '../state/gateway-data';
+import { colorForId, currentUser, guilds, userPresence } from '../state/gateway-data';
 
 interface Props {
   currentServerId: () => string | undefined;
@@ -199,10 +199,10 @@ export function ServerChannelList(props: Props) {
               title={`${self().username}/${self().tag}`}
             >
               <div class="relative shrink-0">
-                <Avatar user={self()} size={36} />
+                <Avatar user={self()} status={userPresence(self().id) ?? 'UNAVAILABLE'} size={36} />
                 <span
                   class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-[#f5efe1] dark:ring-[#211e1b]"
-                  style={{ 'background-color': statusColors[self().status] }}
+                  style={{ 'background-color': statusColors[userPresence(self().id) ?? 'UNAVAILABLE'] }}
                 />
               </div>
               <div class="flex-1 min-w-0">
@@ -210,7 +210,7 @@ export function ServerChannelList(props: Props) {
                   {self().username}
                 </div>
                 <div class="text-xs text-stone-500 truncate font-display italic">
-                  {statusLabels[self().status]}
+                  {statusLabels[userPresence(self().id) ?? 'UNAVAILABLE']}
                 </div>
               </div>
             </button>

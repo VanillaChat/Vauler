@@ -28,7 +28,7 @@ import { ServerModal } from '../components/ServerModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { LayoutContext } from '../contexts/layout';
 import { ProfileContext } from '../contexts/profile';
-import { colorForId, currentUser, guilds } from '../state/gateway-data';
+import { colorForId, currentUser, guilds, userPresence } from '../state/gateway-data';
 import { ready } from '../api/gateway';
 import { t } from '../i18n';
 
@@ -302,18 +302,7 @@ function AppLayout() {
   const liveProfileUser = createMemo<GatewayUser | null>(() => {
     const u = profileUser();
     if (!u) return null;
-    const me = currentUser();
-    if (me?.id === u.id) return me;
-    const r = ready();
-    if (r) {
-      const presenceStatus = r.presences?.find((p) => p.userId === u.id)?.status;
-      for (const guild of r.guilds) {
-        const m = guild.members?.find((mm) => mm.userId === u.id);
-        if (m) return { ...m.user, status: presenceStatus ?? 'UNAVAILABLE' };
-      }
-      return { ...u, status: presenceStatus ?? 'UNAVAILABLE' };
-    }
-    return u;
+    return ready()?.users?.[u.id] ?? u;
   });
 
   createEffect(() => {
@@ -641,7 +630,7 @@ function AppLayout() {
                   </div>
                   <span
                     class="absolute bottom-1 right-1 w-4 h-4 rounded-full ring-[3px] ring-white dark:ring-[#211e1b]"
-                    style={{ 'background-color': statusColors[u().status] }}
+                    style={{ 'background-color': statusColors[userPresence(u().id) ?? 'UNAVAILABLE'] }}
                   />
                 </div>
                 <div class="mt-3 flex items-baseline gap-1">
@@ -657,7 +646,7 @@ function AppLayout() {
                   when={u().id === currentUser()?.id}
                   fallback={
                     <div class="text-xs font-display italic text-stone-500 mt-0.5">
-                      {statusLabels[u().status]}
+                      {statusLabels[userPresence(u().id) ?? 'UNAVAILABLE']}
                     </div>
                   }
                 >
@@ -668,9 +657,9 @@ function AppLayout() {
                     >
                       <span
                         class="w-2 h-2 rounded-full"
-                        style={{ 'background-color': statusColors[u().status] }}
+                        style={{ 'background-color': statusColors[userPresence(u().id) ?? 'UNAVAILABLE'] }}
                       />
-                      <span>{statusLabels[u().status]}</span>
+                      <span>{statusLabels[userPresence(u().id) ?? 'UNAVAILABLE']}</span>
                       <i class="fa-solid fa-chevron-down text-[0.55rem] opacity-60" />
                     </button>
                     <Show when={statusPickerOpen()}>
@@ -689,7 +678,7 @@ function AppLayout() {
                                 style={{ 'background-color': statusColors[s] }}
                               />
                               <span class="flex-1">{statusLabels[s]}</span>
-                              <Show when={s === u().status}>
+                              <Show when={s === (userPresence(u().id) ?? 'UNAVAILABLE')}>
                                 <i class="fa-solid fa-check text-xs text-stone-500" />
                               </Show>
                             </button>

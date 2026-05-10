@@ -23,9 +23,7 @@ export type GatewayUser = {
   tag: string;
   createdAt: Date;
   bot: boolean;
-  status: UserStatus;
   flags: number;
-  nickname?: string;
   bio: string | null;
   avatar?: string | null;
   banner?: string | null;
@@ -59,7 +57,6 @@ export type GatewayMember = {
   nickname: string | null;
   userId: string;
   joinedAt: string;
-  user: GatewayUser;
 };
 
 export type GatewayGuild = {
@@ -74,7 +71,7 @@ export type GatewayGuild = {
 };
 
 export type GatewayPresence = {
-  userId: string;
+  id: string;
   status: UserStatus;
 };
 
@@ -84,6 +81,7 @@ export type ReadyPayload = {
   settings: GatewaySettings;
   guilds: GatewayGuild[];
   presences: GatewayPresence[];
+  users: Record<string, GatewayUser>;
 };
 
 export type GatewayMessage = {
@@ -222,13 +220,35 @@ export function applyPresence(userId: string, status: UserStatus) {
   const r = readyData();
   if (!r) return;
   const presences = r.presences ?? [];
-  const idx = presences.findIndex((p) => p.userId === userId);
+  const idx = presences.findIndex((p) => p.id === userId);
   const next =
     idx === -1
-      ? [...presences, { userId, status }]
-      : presences.map((p) => (p.userId === userId ? { ...p, status } : p));
-  const user = r.user?.id === userId ? { ...r.user, status } : r.user;
-  setReadyData({ ...r, presences: next, user });
+      ? [...presences, { id: userId, status }]
+      : presences.map((p) => (p.id === userId ? { ...p, status } : p));
+  setReadyData({ ...r, presences: next });
+}
+
+export function upsertUser(user: GatewayUser) {
+  const r = readyData();
+  if (!r || !user?.id) return;
+  const users = { ...(r.users ?? {}), [user.id]: { ...(r.users?.[user.id] ?? {}), ...user } };
+  setReadyData({ ...r, users });
+}
+
+export function upsertUsers(users: GatewayUser[] | Record<string, GatewayUser> | undefined) {
+  if (!users) return;
+  const r = readyData();
+  if (!r) return;
+  const entries = Array.isArray(users)
+    ? users.map((u) => [u.id, u] as const)
+    : Object.entries(users);
+  if (entries.length === 0) return;
+  const merged = { ...(r.users ?? {}) };
+  for (const [id, u] of entries) {
+    if (!id) continue;
+    merged[id] = { ...(merged[id] ?? {}), ...u };
+  }
+  setReadyData({ ...r, users: merged });
 }
 
 function resolveGatewayUrl(): string {
@@ -344,21 +364,46 @@ function handleMessage(msg: GatewayMessage) {
   }
 
   if (msg.op === OP_DISPATCH && msg.t === 'READY') {
-    setReadyData(msg.d as ReadyPayload);
+    const d = msg.d as ReadyPayload & {
+      guilds?: (GatewayGuild & { members?: (GatewayMember & { user?: GatewayUser })[] })[];
+    };
+    const users: Record<string, GatewayUser> = { ...(d.users ?? {}) };
+    if (d.user?.id) users[d.user.id] ??= d.user;
+    for (const g of d.guilds ?? []) {
+      for (const m of g.members ?? []) {
+        if (m.user?.id) users[m.user.id] ??= m.user;
+      }
+    }
+    setReadyData({ ...d, users });
     setState('ready');
     return;
   }
 
   if (msg.op === OP_DISPATCH && msg.t === 'GUILD_CREATE') {
     const d = msg.d as
-      | (GatewayGuild & { guild?: GatewayGuild; channels?: GatewayChannel[]; members?: GatewayMember[] })
+      | (GatewayGuild & {
+          guild?: GatewayGuild;
+          channels?: GatewayChannel[];
+          members?: (GatewayMember & { user?: GatewayUser })[];
+          users?: GatewayUser[] | Record<string, GatewayUser>;
+        })
       | undefined;
     if (!d) return;
     const inner = d.guild ?? d;
     const channels = d.channels ?? inner?.channels ?? [];
-    const members = d.members ?? inner?.members ?? [];
+    const rawMembers = (d.members ?? inner?.members ?? []) as (GatewayMember & {
+      user?: GatewayUser;
+    })[];
+    const stripped: GatewayMember[] = rawMembers.map((m) => ({
+      id: m.id,
+      nickname: m.nickname,
+      userId: m.userId,
+      joinedAt: m.joinedAt,
+    }));
+    const inlineUsers = rawMembers.flatMap((m) => (m.user ? [m.user] : []));
+    upsertUsers(d.users ?? inlineUsers);
     if (inner?.id) {
-      addGuild({ ...inner, channels, members });
+      addGuild({ ...inner, channels, members: stripped });
     }
     return;
   }
@@ -381,16 +426,16 @@ function handleMessage(msg: GatewayMessage) {
           guildId: string;
           nickname: string | null;
           userId: string;
-          user: GatewayUser;
+          user?: GatewayUser;
         }
       | undefined;
-    if (d?.guildId && d?.user) {
+    if (d?.guildId && d?.userId) {
+      if (d.user) upsertUser(d.user);
       addGuildMember(d.guildId, {
         id: 0,
         nickname: d.nickname ?? null,
         userId: d.userId,
         joinedAt: new Date().toISOString(),
-        user: d.user,
       });
     }
     return;
@@ -403,18 +448,23 @@ function handleMessage(msg: GatewayMessage) {
   }
 
   if (msg.op === OP_DISPATCH && msg.t === 'PRESENCE_UPDATE') {
-    const d = msg.d as { userId?: string; status?: UserStatus } | undefined;
-    if (d?.userId && d?.status) applyPresence(d.userId, d.status);
+    const d = msg.d as { id?: string; userId?: string; status?: UserStatus } | undefined;
+    const id = d?.id ?? d?.userId;
+    if (id && d?.status) applyPresence(id, d.status);
     return;
   }
 
   if (msg.op === OP_DISPATCH && msg.t === 'MESSAGE_CREATE') {
-    addMessage(msg.d as Message);
+    const m = msg.d as Message & { author?: GatewayUser };
+    if (m.author) upsertUser(m.author);
+    addMessage(m);
     return;
   }
 
   if (msg.op === OP_DISPATCH && msg.t === 'MESSAGE_UPDATE') {
-    updateMessage(msg.d as Message);
+    const m = msg.d as Message & { author?: GatewayUser };
+    if (m.author) upsertUser(m.author);
+    updateMessage(m);
     return;
   }
 

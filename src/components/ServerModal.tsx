@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js';
 import { ApiError } from '../api/client';
-import { addGuild } from '../api/gateway';
+import { addGuild, upsertUsers, type GatewayMember, type GatewayUser } from '../api/gateway';
 import { createServer, joinServer } from '../api/servers';
 import { t } from '../i18n';
 import { Button } from './ui/Button';
@@ -31,10 +31,18 @@ export function ServerModal(props: {
           : await joinServer({ inviteCode: code() });
       if (result?.guild?.id) {
         const g = result.guild;
+        const rawMembers = (g.members ?? []) as (GatewayMember & { user?: GatewayUser })[];
+        upsertUsers(result.users ?? rawMembers.flatMap((m) => (m.user ? [m.user] : [])));
+        const stripped: GatewayMember[] = rawMembers.map((m) => ({
+          id: m.id,
+          nickname: m.nickname,
+          userId: m.userId,
+          joinedAt: m.joinedAt,
+        }));
         addGuild({
           ...g,
           channels: g.channels ?? result.channels ?? [],
-          members: g.members ?? [],
+          members: stripped,
         } as Parameters<typeof addGuild>[0]);
         props.onCreated?.(g.id);
       }
