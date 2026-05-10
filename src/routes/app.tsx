@@ -1,6 +1,5 @@
 import {
   createFileRoute,
-  Link,
   Outlet,
   useMatch,
   useNavigate,
@@ -21,7 +20,9 @@ import {
   type GatewayUser,
   type UserStatus,
 } from '../api/gateway';
-import { Avatar, statusColors, statusLabels } from '../components/Avatar';
+import { statusColors, statusLabels } from '../components/Avatar';
+import { CreateChannelModal } from '../components/CreateChannelModal';
+import { ServerChannelList } from '../components/ServerChannelList';
 import { ServerModal } from '../components/ServerModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { ProfileContext } from '../contexts/profile';
@@ -47,9 +48,18 @@ function AppLayout() {
     const id = serverMatch()?.params.serverId;
     return id ?? prev;
   });
+  const channelMatch = useMatch({
+    from: '/app/$serverId/$channelId',
+    shouldThrow: false,
+  });
+  const currentChannelId = createMemo<string | undefined>((prev) => {
+    const id = channelMatch()?.params.channelId;
+    return id ?? prev;
+  });
 
   const [profileUser, setProfileUser] = createSignal<GatewayUser | null>(null);
   const [profilePos, setProfilePos] = createSignal({ x: 0, y: 0 });
+  const [profilePinBottom, setProfilePinBottom] = createSignal<number | null>(null);
   const [profileOrigin, setProfileOrigin] = createSignal('top left');
   const [profileClosing, setProfileClosing] = createSignal(false);
   const [statusPickerOpen, setStatusPickerOpen] = createSignal(false);
@@ -57,6 +67,8 @@ function AppLayout() {
   const [serverModalClosing, setServerModalClosing] = createSignal(false);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const [settingsClosing, setSettingsClosing] = createSignal(false);
+  const [channelModalGuildId, setChannelModalGuildId] = createSignal<string | null>(null);
+  const [channelModalClosing, setChannelModalClosing] = createSignal(false);
   let popoverEl: HTMLDivElement | undefined;
 
   const ANIM_MS = 130;
@@ -116,11 +128,21 @@ function AppLayout() {
     }, ANIM_MS);
   };
 
+  const closeChannelModal = () => {
+    if (!channelModalGuildId() || channelModalClosing()) return;
+    setChannelModalClosing(true);
+    setTimeout(() => {
+      setChannelModalGuildId(null);
+      setChannelModalClosing(false);
+    }, ANIM_MS);
+  };
+
   const openProfile = (
     user: GatewayUser,
     e: MouseEvent,
     preferRight = false,
     preferAbove = false,
+    centerX = false,
   ) => {
     e.stopPropagation();
     const W = 288;
@@ -131,20 +153,27 @@ function AppLayout() {
 
     let x: number;
     let y: number;
-    let originX: 'left' | 'right';
+    let originX: 'left' | 'right' | 'center';
     let originY: 'top' | 'bottom';
 
+    let pinBottom: number | null = null;
     if (preferAbove) {
-      x = rect.left;
+      if (centerX) {
+        x = rect.left + rect.width / 2 - W / 2;
+        originX = 'center';
+      } else {
+        x = rect.left;
+        originX = 'left';
+      }
       const above = rect.top - H - GAP;
       if (above >= 8) {
+        pinBottom = window.innerHeight - rect.top + GAP;
         y = above;
         originY = 'bottom';
       } else {
         y = rect.bottom + GAP;
         originY = 'top';
       }
-      originX = 'left';
     } else {
       if (preferRight) {
         const right = rect.right + GAP;
@@ -183,6 +212,7 @@ function AppLayout() {
     }
     setProfileClosing(false);
     setProfilePos({ x, y });
+    setProfilePinBottom(pinBottom);
     setProfileOrigin(`${originY} ${originX}`);
     setStatusPickerOpen(false);
     setProfileUser(user);
@@ -254,81 +284,24 @@ function AppLayout() {
             <span>{t('app-connecting')}</span>
           </div>
         </Show>
-        <nav class="w-[80px] shrink-0 flex flex-col items-center py-5">
-          <Link to="/" class="block w-10 h-10 mb-1" aria-label="home">
-            <span
-              class="block w-10 h-10 bg-stone-900 dark:bg-stone-100"
-              style={{
-                mask: 'url(/VanillaMark.svg) center / contain no-repeat',
-                '-webkit-mask': 'url(/VanillaMark.svg) center / contain no-repeat',
-              }}
-            />
-          </Link>
-          <button
-            onClick={() => setServerModalOpen(true)}
-            class="w-12 h-12 rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 text-stone-400 hover:border-[#c9a942] hover:text-[#c9a942] hover:bg-[#f7e26c]/10 transition-colors flex items-center justify-center shrink-0 mt-3"
-            title={t('app-add-server')}
-          >
-            <i class="fa-solid fa-plus" />
-          </button>
-          <div class="w-6 h-px bg-stone-300 dark:bg-stone-700 my-3" />
-          <div class="flex-1 w-full overflow-y-auto flex flex-col items-center gap-3 min-h-0">
-          <For each={guilds()}>
-            {(g) => {
-              const active = () => g.id === currentServerId();
-              return (
-                <button
-                  onClick={() => onPickServer(g.id)}
-                  class="group relative"
-                  title={g.name}
-                >
-                  <Show when={active()}>
-                    <span class="absolute -left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-stone-900 dark:bg-stone-100" />
-                  </Show>
-                  <span
-                    class="flex items-center justify-center w-12 h-12 rounded-2xl font-display text-stone-900 overflow-hidden"
-                    classList={{
-                      'shadow-[0_8px_22px_rgba(0,0,0,0.18)]': active(),
-                      'opacity-55 shadow-[0_2px_6px_rgba(0,0,0,0.06)] hover:opacity-100 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)]':
-                        !active(),
-                    }}
-                    style={{ 'background-color': colorForId(g.id), 'font-size': '20px' }}
-                  >
-                    {g.icon ? (
-                      <img src={g.icon} alt="" class="w-full h-full object-cover" />
-                    ) : (
-                      g.name[0]?.toUpperCase()
-                    )}
-                  </span>
-                </button>
-              );
-            }}
-          </For>
-          </div>
-
-          <Show when={currentUser()}>
-            {(self) => (
-              <div class="flex flex-col items-center gap-2 pb-1">
-                <button
-                  onClick={(e) => openProfile(self(), e, true)}
-                  title={`${self().username}/${self().tag}`}
-                >
-                  <Avatar user={self()} size={40} />
-                </button>
-                <button
-                  onClick={() => {
-                    setSettingsClosing(false);
-                    setSettingsOpen(true);
-                  }}
-                  class="w-9 h-9 rounded-xl text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 flex items-center justify-center transition-colors"
-                  title={t('settings-title')}
-                >
-                  <i class="fa-solid fa-gear text-sm" />
-                </button>
-              </div>
-            )}
-          </Show>
-        </nav>
+        <ServerChannelList
+          currentServerId={currentServerId}
+          currentChannelId={currentChannelId}
+          onPickServer={onPickServer}
+          onAddServer={() => setServerModalOpen(true)}
+          canAddChannel={(id) =>
+            guilds().find((g) => g.id === id)?.ownerId === currentUser()?.id
+          }
+          onAddChannel={(id) => {
+            setChannelModalClosing(false);
+            setChannelModalGuildId(id);
+          }}
+          onOpenProfile={(user, e) => openProfile(user, e, false, true, true)}
+          onOpenSettings={() => {
+            setSettingsClosing(false);
+            setSettingsOpen(true);
+          }}
+        />
 
         <Outlet />
 
@@ -350,6 +323,23 @@ function AppLayout() {
           <SettingsModal closing={settingsClosing()} onClose={closeSettings} />
         </Show>
 
+        <Show when={channelModalGuildId()}>
+          {(guildId) => (
+            <CreateChannelModal
+              guildId={guildId()}
+              closing={channelModalClosing()}
+              onClose={closeChannelModal}
+              onCreated={(c) =>
+                navigate({
+                  to: '/app/$serverId/$channelId',
+                  params: { serverId: guildId(), channelId: c.id },
+                  viewTransition: false,
+                })
+              }
+            />
+          )}
+        </Show>
+
         <Show when={liveProfileUser()}>
           {(u) => (
             <div
@@ -359,7 +349,9 @@ function AppLayout() {
               }`}
               style={{
                 left: `${profilePos().x}px`,
-                top: `${profilePos().y}px`,
+                ...(profilePinBottom() !== null
+                  ? { bottom: `${profilePinBottom()}px` }
+                  : { top: `${profilePos().y}px` }),
                 'transform-origin': profileOrigin(),
               }}
             >

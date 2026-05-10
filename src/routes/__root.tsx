@@ -43,6 +43,15 @@ function RootComponent() {
               <i class="fa-brands fa-github text-base" />
               GitHub
             </a>
+            <a
+              href="https://discord.gg/mXZZzSHGnR"
+              target="_blank"
+              rel="noreferrer"
+              class="inline-flex items-center gap-1.5 text-sm text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white transition-colors"
+            >
+              <i class="fa-brands fa-discord text-base" />
+              Discord
+            </a>
           </div>
           <div class="flex items-center gap-2">
             <Show
