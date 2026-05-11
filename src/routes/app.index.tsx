@@ -13,16 +13,35 @@ function AppIndex() {
   const layout = useLayout();
   return (
     <main
-      class="relative flex-1 min-w-0 flex flex-col items-center justify-center my-2 mx-2 sm:my-3 sm:mr-3 sm:ml-0 bg-white dark:bg-[#211e1b] rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
+      class="relative flex-1 min-w-0 flex flex-col items-center justify-center bg-white dark:bg-[#211e1b] lg:my-3 lg:mx-3 lg:rounded-3xl lg:shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
       style={layout.contentStyle()}
     >
       <button
         type="button"
         onClick={() => layout.toggleSidebar()}
-        class="lg:hidden absolute top-3 left-3 w-9 h-9 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center"
-        aria-label={t('app-open-menu')}
+        class="absolute top-3 left-3 w-9 h-9 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center"
+        aria-label={
+          layout.isMobile()
+            ? t('app-open-menu')
+            : layout.sidebarCollapsed()
+              ? t('app-show-sidebar')
+              : t('app-hide-sidebar')
+        }
+        title={
+          layout.isMobile()
+            ? t('app-open-menu')
+            : layout.sidebarCollapsed()
+              ? t('app-show-sidebar')
+              : t('app-hide-sidebar')
+        }
       >
-        <i class="fa-solid fa-bars text-base" />
+        <i
+          class={`fa-solid text-base ${
+            layout.sidebarCollapsed()
+              ? 'fa-bars-staggered'
+                : 'fa-bars'
+          }`}
+        />
       </button>
       <Show
         when={gatewayState() === 'ready'}

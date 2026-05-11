@@ -33,8 +33,13 @@ export function ServerChannelList(props: Props) {
 
   return (
     <aside
-      class="w-72 max-w-[85vw] shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col rounded-3xl my-3 ml-3 mr-2 shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden fixed inset-y-0 left-0 z-40 lg:relative lg:transform-none"
+      class="w-72 max-w-[85vw] shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden fixed inset-y-0 left-0 z-40 lg:rounded-3xl lg:my-3 lg:ml-3 lg:mr-2"
       style={layout.leftStyle()}
+      onMouseLeave={() => {
+        if (!layout.isMobile() && layout.sidebarCollapsed()) {
+          layout.setSidebarPeeking(false);
+        }
+      }}
     >
       <Link
         to="/"

@@ -484,17 +484,36 @@ function ChannelView() {
 
   return (
     <main
-      class="relative flex-1 min-w-0 flex flex-col my-2 mx-2 sm:my-3 sm:mr-2 sm:ml-0 bg-white dark:bg-[#211e1b] rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden"
+      class="relative flex-1 min-w-0 flex flex-col bg-white dark:bg-[#211e1b] overflow-hidden lg:my-3 lg:mx-3 lg:rounded-3xl lg:shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
       style={layout.contentStyle()}
     >
       <header class="px-4 sm:px-6 h-14 flex items-center gap-3 border-b border-stone-100 dark:border-stone-800 shrink-0">
         <button
           type="button"
           onClick={() => layout.toggleSidebar()}
-          class="lg:hidden -ml-1 w-9 h-9 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
-          aria-label={t('app-open-menu')}
+          class="-ml-1 w-9 h-9 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
+          aria-label={
+            layout.isMobile()
+              ? t('app-open-menu')
+              : layout.sidebarCollapsed()
+                ? t('app-show-sidebar')
+                : t('app-hide-sidebar')
+          }
+          title={
+            layout.isMobile()
+              ? t('app-open-menu')
+              : layout.sidebarCollapsed()
+                ? t('app-show-sidebar')
+                : t('app-hide-sidebar')
+          }
         >
-          <i class="fa-solid fa-bars text-base" />
+          <i
+            class={`fa-solid text-base ${
+              layout.sidebarCollapsed()
+                  ? 'fa-bars-staggered'
+                  : 'fa-bars'
+            }`}
+          />
         </button>
         <Show when={channel()} fallback={<span class="text-sm text-stone-400 italic font-display">{t('app-channel-not-found')}</span>}>
           {(ch) => (
@@ -514,11 +533,27 @@ function ChannelView() {
               <button
                 type="button"
                 onClick={() => layout.toggleMembers()}
-                class="lg:hidden w-9 h-9 -mr-1 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
-                aria-label={t('members-room')}
-                title={t('members-room')}
+                class="w-9 h-9 -mr-1 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
+                aria-label={
+                  layout.isMobile()
+                    ? t('members-room')
+                    : layout.membersCollapsed()
+                      ? t('app-show-members')
+                      : t('app-hide-members')
+                }
+                title={
+                  layout.isMobile()
+                    ? t('members-room')
+                    : layout.membersCollapsed()
+                      ? t('app-show-members')
+                      : t('app-hide-members')
+                }
               >
-                <i class="fa-solid fa-users text-sm" />
+                <i class={`fa-solid text-md ${
+                  layout.membersCollapsed()
+                  ? 'fa-bars-staggered'
+                      : 'fa-bars'
+                }`} />
               </button>
             </>
           )}
@@ -755,7 +790,7 @@ function ChannelView() {
                   fallback={
                     <div
                       data-message-id={m.id}
-                      class="relative flex group hover:bg-[#f7e26c]/15 dark:hover:bg-stone-800/60 hover:shadow-[inset_3px_0_0_#f7e26c] -mx-3 px-3 py-0.5 rounded-md transition-all"
+                      class="relative flex group hover:bg-[#f7e26c]/40 dark:hover:bg-stone-800/80 -mx-3 px-3 py-0.5 rounded-md transition-colors"
                       classList={{
                         'bg-[#f7e26c]/30 dark:bg-[#f7e26c]/20 shadow-[inset_3px_0_0_#f7e26c]':
                           isHighlighted(),
@@ -774,7 +809,7 @@ function ChannelView() {
                 >
                   <div
                     data-message-id={m.id}
-                    class="relative group hover:bg-[#f7e26c]/15 dark:hover:bg-stone-800/60 hover:shadow-[inset_3px_0_0_#f7e26c] -mx-3 px-3 py-2 mt-2 rounded-xl transition-all"
+                    class="relative group hover:bg-[#f7e26c]/40 dark:hover:bg-stone-800/80 -mx-3 px-3 py-2 mt-2 rounded-xl transition-colors"
                     classList={{
                       'bg-[#f7e26c]/30 dark:bg-[#f7e26c]/20 shadow-[inset_3px_0_0_#f7e26c]':
                         isHighlighted(),

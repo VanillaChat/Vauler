@@ -25,8 +25,13 @@ function ServerLayout() {
       <Outlet />
 
       <aside
-        class="w-64 max-w-[85vw] shrink-0 my-3 mr-3 ml-0 bg-[#f5efe1] dark:bg-[#211e1b] rounded-3xl flex flex-col shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden fixed inset-y-0 right-0 z-40 lg:relative lg:w-60 xl:w-64 lg:transform-none"
+        class="w-64 max-w-[85vw] shrink-0 bg-[#f5efe1] dark:bg-[#211e1b] flex flex-col shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden fixed inset-y-0 right-0 z-40 lg:my-3 lg:mr-3 lg:ml-0 lg:rounded-3xl"
         style={layout.rightStyle()}
+        onMouseLeave={() => {
+          if (!layout.isMobile() && layout.membersCollapsed()) {
+            layout.setMembersPeeking(false);
+          }
+        }}
       >
         <div class="px-5 h-14 flex items-center gap-2 shrink-0">
           <span class="font-display text-lg">{t('members-room')}</span>
