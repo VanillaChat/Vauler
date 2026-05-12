@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/solid-router';
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from 'solid-js';
-import { Portal } from 'solid-js/web';
 import { ApiError } from '../api/client';
-import { gatewayState, type GatewayUser } from '../api/gateway';
+import { gatewayState } from '../api/gateway';
 import { createChannelInvite } from '../api/invites';
 import {
   createMessage,
@@ -13,18 +12,24 @@ import {
   type Message,
   sendTyping,
 } from '../api/messages';
-import { Avatar } from '../components/Avatar';
-import { useLayout } from '../contexts/layout';
-import { useProfile } from '../contexts/profile';
-import { t } from '../i18n';
+import { ChannelHeader } from '../components/channel/ChannelHeader';
 import {
-  compactMode,
-  currentUser,
-  getUser,
-  useChannel,
-  useGuild,
-  userPresence,
-} from '../state/gateway-data';
+  type CtxMenuState,
+  MessageContextMenu,
+} from '../components/channel/MessageContextMenu';
+import {
+  type DeleteCandidate,
+  DeleteMessageDialog,
+} from '../components/channel/DeleteMessageDialog';
+import { InviteBanner } from '../components/channel/InviteBanner';
+import { JumpToBottomButton } from '../components/channel/JumpToBottomButton';
+import { MessageComposer } from '../components/channel/MessageComposer';
+import { MessageItem } from '../components/channel/MessageItem';
+import { SlowmodeIndicator } from '../components/channel/SlowmodeIndicator';
+import { TypingIndicator } from '../components/channel/TypingIndicator';
+import { useLayout } from '../contexts/layout';
+import { t } from '../i18n';
+import { currentUser, useChannel, useGuild } from '../state/gateway-data';
 import {
   addMessage,
   isChannelExhausted,
@@ -44,25 +49,23 @@ export const Route = createFileRoute('/app/$serverId/$channelId')({
   component: ChannelView,
 });
 
-const formatCooldown = (s: number) => {
-  if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
-  if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
-  return `${s}s`;
-};
+const PAGE_SIZE = 50;
+const ANIM_MS = 130;
 
 function ChannelView() {
   const params = Route.useParams();
   const channel = useChannel(() => params().serverId, () => params().channelId);
   const guild = useGuild(() => params().serverId);
   const isOwner = () => guild()?.ownerId === currentUser()?.id;
-  const profile = useProfile();
   const layout = useLayout();
+
   const messages = createMemo(() => {
     const list = messageStore()[params().channelId] ?? [];
     return [...list].sort(
       (a, b) => Number(new Date(a.createdAt)) - Number(new Date(b.createdAt)),
     );
   });
+
   const typing = createMemo(() => typingStore()[params().channelId] ?? []);
   const typingText = createMemo(() => {
     const list = typing();
@@ -78,6 +81,7 @@ function ChannelView() {
       });
     return t('typing-many');
   });
+
   const [draft, setDraft] = createSignal('');
   const [loadingHistory, setLoadingHistory] = createSignal(false);
   const [loadingOlder, setLoadingOlder] = createSignal(false);
@@ -88,8 +92,6 @@ function ChannelView() {
   let scrollEl: HTMLDivElement | undefined;
   let composerEl: HTMLTextAreaElement | undefined;
   let highlightTimer: number | null = null;
-
-  const PAGE_SIZE = 50;
 
   const loadInitial = async (id: string) => {
     if (gatewayState() !== 'ready') return;
@@ -284,22 +286,12 @@ function ChannelView() {
 
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [editDraft, setEditDraft] = createSignal('');
-  const [deleteCandidate, setDeleteCandidate] = createSignal<{
-    id: string;
-    preview: string;
-  } | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = createSignal<DeleteCandidate | null>(null);
   const [deleteClosing, setDeleteClosing] = createSignal(false);
   const [deleteSubmitting, setDeleteSubmitting] = createSignal(false);
   let deleteCloseTimer: number | null = null;
-  const ANIM_MS = 130;
 
-  const [ctxMenu, setCtxMenu] = createSignal<{
-    x: number;
-    y: number;
-    messageId: string;
-    content: string;
-    mine: boolean;
-  } | null>(null);
+  const [ctxMenu, setCtxMenu] = createSignal<CtxMenuState | null>(null);
   const [ctxClosing, setCtxClosing] = createSignal(false);
   let ctxCloseTimer: number | null = null;
   let ctxMenuEl: HTMLDivElement | undefined;
@@ -406,9 +398,6 @@ function ChannelView() {
     }
     cancelEdit();
   };
-  const onDelete = (id: string, preview: string) => {
-    openDelete(id, preview);
-  };
 
   const confirmDelete = async () => {
     const c = deleteCandidate();
@@ -476,10 +465,20 @@ function ChannelView() {
             ? err.message
             : t('app-send-failed'),
       );
-      setDraft(text); // restore on failure
+      setDraft(text);
     } finally {
       setSending(false);
     }
+  };
+
+  const onReplyFromMenu = (id: string) => {
+    const target = messages().find((x) => x.id === id);
+    if (target) startReply(target);
+  };
+
+  const onCopyLink = (id: string) => {
+    const link = `${window.location.origin}/app/${params().serverId}/${params().channelId}/${id}`;
+    copyToClipboard(link);
   };
 
   return (
@@ -487,118 +486,19 @@ function ChannelView() {
       class="relative flex-1 min-w-0 flex flex-col bg-white dark:bg-[#211e1b] overflow-hidden lg:my-3 lg:mx-3 lg:rounded-3xl lg:shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
       style={layout.contentStyle()}
     >
-      <header class="px-4 sm:px-6 h-14 flex items-center gap-3 border-b border-stone-100 dark:border-stone-800 shrink-0">
-        <button
-          type="button"
-          onClick={() => layout.toggleSidebar()}
-          class="-ml-1 w-9 h-9 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
-          aria-label={
-            layout.isMobile()
-              ? t('app-open-menu')
-              : layout.sidebarCollapsed()
-                ? t('app-show-sidebar')
-                : t('app-hide-sidebar')
-          }
-          title={
-            layout.isMobile()
-              ? t('app-open-menu')
-              : layout.sidebarCollapsed()
-                ? t('app-show-sidebar')
-                : t('app-hide-sidebar')
-          }
-        >
-          <i
-            class={`fa-solid text-base ${
-              layout.sidebarCollapsed()
-                  ? 'fa-bars-staggered'
-                  : 'fa-bars'
-            }`}
-          />
-        </button>
-        <Show when={channel()} fallback={<span class="text-sm text-stone-400 italic font-display">{t('app-channel-not-found')}</span>}>
-          {(ch) => (
-            <>
-              <i class="fa-solid fa-hashtag text-stone-400 text-lg" />
-              <h2 class="font-display text-xl sm:text-2xl truncate min-w-0">{ch().name}</h2>
-              <div class="flex-1" />
-              <button
-                onClick={generateInvite}
-                disabled={inviteLoading()}
-                class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors flex items-center gap-1.5 text-sm disabled:opacity-50"
-                title={t('invite-button')}
-              >
-                <i class="fa-solid fa-link" />
-                <span class="hidden sm:inline font-display italic">{t('invite-button')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => layout.toggleMembers()}
-                class="w-9 h-9 -mr-1 rounded-xl text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-800 dark:hover:text-stone-100 flex items-center justify-center shrink-0"
-                aria-label={
-                  layout.isMobile()
-                    ? t('members-room')
-                    : layout.membersCollapsed()
-                      ? t('app-show-members')
-                      : t('app-hide-members')
-                }
-                title={
-                  layout.isMobile()
-                    ? t('members-room')
-                    : layout.membersCollapsed()
-                      ? t('app-show-members')
-                      : t('app-hide-members')
-                }
-              >
-                <i class={`fa-solid text-md ${
-                  layout.membersCollapsed()
-                  ? 'fa-bars-staggered'
-                      : 'fa-bars'
-                }`} />
-              </button>
-            </>
-          )}
-        </Show>
-      </header>
+      <ChannelHeader
+        channel={channel}
+        onGenerateInvite={generateInvite}
+        inviteLoading={inviteLoading}
+      />
 
-      <Show when={inviteCode() || inviteError()}>
-        <div class="px-4 sm:px-6 py-3 border-b border-stone-100 dark:border-stone-800 bg-[#fdfaf3] dark:bg-stone-900/40">
-          <Show when={inviteCode()}>
-            {(c) => (
-              <div class="flex items-center gap-3">
-                <i class="fa-solid fa-link text-stone-400" />
-                <code class="flex-1 font-mono text-sm text-stone-700 dark:text-stone-200 truncate">
-                  {c()}
-                </code>
-                <button
-                  onClick={copyInvite}
-                  class="px-3 py-1.5 rounded-lg bg-[#f7e26c] text-stone-900 text-xs font-medium hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow flex items-center gap-1.5"
-                >
-                  <i class={copied() ? 'fa-solid fa-check' : 'fa-regular fa-copy'} />
-                  {copied() ? t('invite-copied') : t('invite-copy')}
-                </button>
-                <button
-                  onClick={closeInvite}
-                  class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-                  title="Dismiss"
-                >
-                  <i class="fa-solid fa-xmark" />
-                </button>
-              </div>
-            )}
-          </Show>
-          <Show when={inviteError()}>
-            <div class="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
-              <span>{inviteError()}</span>
-              <button
-                onClick={closeInvite}
-                class="ml-auto text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-              >
-                <i class="fa-solid fa-xmark" />
-              </button>
-            </div>
-          </Show>
-        </div>
-      </Show>
+      <InviteBanner
+        code={inviteCode}
+        error={inviteError}
+        copied={copied}
+        onCopy={copyInvite}
+        onClose={closeInvite}
+      />
 
       <div
         ref={scrollEl}
@@ -606,301 +506,56 @@ function ChannelView() {
         class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-5"
       >
         <div class="min-h-full flex flex-col justify-end">
-        <Show when={loadingOlder()}>
-          <div class="text-center py-2 text-xs text-stone-400 italic font-display">
-            {t('app-load-older')}
-          </div>
-        </Show>
-        <Show when={loadingHistory() && messages().length === 0}>
-          <div class="text-center py-20 text-stone-400 italic font-display">{t('app-loading')}</div>
-        </Show>
-        <Show
-          when={messages().length > 0}
-          fallback={
-            <div class="text-center text-stone-400 py-20 font-display italic text-2xl">
-              {t('app-empty-channel')}
+          <Show when={loadingOlder()}>
+            <div class="text-center py-2 text-xs text-stone-400 italic font-display">
+              {t('app-load-older')}
             </div>
-          }
-        >
-          <For each={messages()}>
-            {(m, i) => {
-              const author = m.author;
-              const cachedUser = () => getUser(m.authorId);
-              const displayName = () =>
-                author?.member?.nickname ?? cachedUser()?.username ?? author?.username ?? '?';
-              const liveStatus = () => userPresence(m.authorId) ?? 'UNAVAILABLE';
-              const avatarUser = () => ({
-                id: m.authorId,
-                username: cachedUser()?.username ?? author?.username ?? '?',
-                avatar: cachedUser()?.avatar ?? author?.avatar ?? null,
-              });
-              const profileUser = (): GatewayUser =>
-                cachedUser() ?? {
-                  id: m.authorId,
-                  username: author?.username ?? '?',
-                  tag: author?.tag ?? '',
-                  createdAt: new Date(0),
-                  bot: author?.bot ?? false,
-                  flags: author?.flags ?? 0,
-                  bio: null,
-                  avatar: author?.avatar ?? null,
-                  banner: null,
-                };
-              const fullTime = new Date(m.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              });
-              const hasReply = () =>
-                !!m.referencedMessage || !!m.messageReference?.messageId;
-              const isHead = createMemo(() => {
-                const prev = messages()[i() - 1];
-                if (!prev) return true;
-                if (hasReply()) return true;
-                if (compactMode()) return false;
-                if (prev.authorId !== m.authorId) return true;
-                return (
-                  Number(new Date(m.createdAt)) - Number(new Date(prev.createdAt)) >
-                  5 * 60 * 1000
-                );
-              });
-              const isMine = () => m.authorId === currentUser()?.id;
-              const isEditing = () => editingId() === m.id;
-
-              const Toolbar = () => (
-                <Show when={!isEditing()}>
-                  <div class="absolute -top-3 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-md overflow-hidden z-10">
-                    <button
-                      type="button"
-                      onClick={() => startReply(m)}
-                      class="w-8 h-8 flex items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300"
-                      title={t('context-reply')}
-                    >
-                      <i class="fa-solid fa-reply text-xs" />
-                    </button>
-                    <Show when={isMine()}>
-                      <button
-                        type="button"
-                        onClick={() => startEdit(m.id, m.content)}
-                        class="w-8 h-8 flex items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border-l border-stone-200 dark:border-stone-700"
-                        title={t('context-edit')}
-                      >
-                        <i class="fa-solid fa-pen text-xs" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(m.id, m.content)}
-                        class="w-8 h-8 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 border-l border-stone-200 dark:border-stone-700"
-                        title={t('context-delete')}
-                      >
-                        <i class="fa-solid fa-trash text-xs" />
-                      </button>
-                    </Show>
-                  </div>
-                </Show>
-              );
-
-              const ReplyPreview = () => {
-                const ref = m.referencedMessage;
-                if (!ref && !m.messageReference?.messageId) return null;
-                const refAuthorName = () => {
-                  if (!ref) return null;
-                  const cached = getUser(ref.authorId);
-                  return (
-                    ref.author?.member?.nickname ??
-                    cached?.username ??
-                    ref.author?.username ??
-                    '?'
-                  );
-                };
-                const refAvatarUser = () => {
-                  if (!ref) return null;
-                  const cached = getUser(ref.authorId);
-                  return {
-                    id: ref.authorId,
-                    username: cached?.username ?? ref.author?.username ?? '?',
-                    avatar: cached?.avatar ?? ref.author?.avatar ?? null,
-                  };
-                };
-                const targetId = ref?.id ?? m.messageReference?.messageId;
-                const onJump = () => {
-                  if (targetId) jumpToMessage(targetId);
-                };
-                return (
-                  <div class="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mb-1 pl-3 relative">
-                    <span class="absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2 border-l-2 border-t-2 border-stone-300 dark:border-stone-600 rounded-tl-md" />
-                    <Show when={ref} fallback={
-                      <span class="italic">{t('reply-deleted')}</span>
-                    }>
-                      {(r) => (
-                        <button
-                          type="button"
-                          onClick={onJump}
-                          class="flex items-center gap-1.5 min-w-0 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
-                          title={t('reply-click-to-jump')}
-                        >
-                          <Avatar user={refAvatarUser()!} size={16} />
-                          <span class="font-display font-medium shrink-0">
-                            @{refAuthorName()}
-                          </span>
-                          <span class="truncate opacity-80">{r().content}</span>
-                        </button>
-                      )}
-                    </Show>
-                  </div>
-                );
-              };
-
-              const Content = () => (
-                <Show when={isEditing()} fallback={m.content}>
-                  <div>
-                    <textarea
-                      value={editDraft()}
-                      onInput={(e) => setEditDraft(e.currentTarget.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          saveEdit();
-                        }
-                        if (e.key === 'Escape') cancelEdit();
-                      }}
-                      rows={2}
-                      class="w-full rounded-lg bg-[#fdfaf3] dark:bg-stone-900 border border-stone-200 dark:border-stone-700 px-3 py-2 text-sm outline-none focus:border-[#f7e26c] resize-none"
-                    />
-                    <div class="flex gap-3 text-xs text-stone-500 mt-1 italic font-display">
-                      <span>
-                        {t('edit-hint')}{' '}
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          class="underline hover:text-stone-800 dark:hover:text-stone-200"
-                        >
-                          {t('edit-cancel')}
-                        </button>
-                      </span>
-                    </div>
-                  </div>
-                </Show>
-              );
-
-              const isHighlighted = () => highlightId() === m.id;
-
-              return (
-                <Show
-                  when={isHead()}
-                  fallback={
-                    <div
-                      data-message-id={m.id}
-                      class="relative flex group hover:bg-[#f7e26c]/40 dark:hover:bg-stone-800/80 -mx-3 px-3 py-0.5 rounded-md transition-colors"
-                      classList={{
-                        'bg-[#f7e26c]/30 dark:bg-[#f7e26c]/20 shadow-[inset_3px_0_0_#f7e26c]':
-                          isHighlighted(),
-                      }}
-                      onContextMenu={(e) => openCtxMenu(e, m.id, m.content, isMine())}
-                    >
-                      <Toolbar />
-                      <span class="w-[50px] shrink-0 text-[0.65rem] text-stone-400 font-mono opacity-0 group-hover:opacity-100 self-center text-right pr-2">
-                        {fullTime}
-                      </span>
-                      <div class="flex-1 min-w-0 text-stone-700 dark:text-stone-300 leading-relaxed text-[0.95rem] break-words whitespace-pre-wrap">
-                        <Content />
-                      </div>
-                    </div>
-                  }
-                >
-                  <div
-                    data-message-id={m.id}
-                    class="relative group hover:bg-[#f7e26c]/40 dark:hover:bg-stone-800/80 -mx-3 px-3 py-2 mt-2 rounded-xl transition-colors"
-                    classList={{
-                      'bg-[#f7e26c]/30 dark:bg-[#f7e26c]/20 shadow-[inset_3px_0_0_#f7e26c]':
-                        isHighlighted(),
-                    }}
-                    onContextMenu={(e) => openCtxMenu(e, m.id, m.content, isMine())}
-                  >
-                    <Toolbar />
-                    <ReplyPreview />
-                    <div class="flex gap-3">
-                      <button
-                        onClick={(e) => profile.open(profileUser(), e, true)}
-                        class="shrink-0"
-                      >
-                        <Avatar user={avatarUser()} status={liveStatus()} size={38} />
-                      </button>
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-baseline gap-2">
-                          <button
-                            onClick={(e) => profile.open(profileUser(), e, true)}
-                            class="font-display text-base hover:underline underline-offset-2"
-                          >
-                            {displayName()}
-                          </button>
-                          <span class="text-xs text-stone-400 font-display italic">
-                            {fullTime}
-                          </span>
-                        </div>
-                        <div class="text-stone-700 dark:text-stone-300 leading-relaxed text-[0.95rem] break-words mt-0.5 whitespace-pre-wrap">
-                          <Content />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Show>
-              );
-            }}
-          </For>
-        </Show>
+          </Show>
+          <Show when={loadingHistory() && messages().length === 0}>
+            <div class="text-center py-20 text-stone-400 italic font-display">
+              {t('app-loading')}
+            </div>
+          </Show>
+          <Show
+            when={messages().length > 0}
+            fallback={
+              <div class="text-center text-stone-400 py-20 font-display italic text-2xl">
+                {t('app-empty-channel')}
+              </div>
+            }
+          >
+            <For each={messages()}>
+              {(m, i) => (
+                <MessageItem
+                  m={m}
+                  prev={() => messages()[i() - 1]}
+                  highlighted={() => highlightId() === m.id}
+                  editing={() => editingId() === m.id}
+                  editDraft={editDraft}
+                  setEditDraft={setEditDraft}
+                  saveEdit={saveEdit}
+                  cancelEdit={cancelEdit}
+                  onStartReply={startReply}
+                  onStartEdit={startEdit}
+                  onDelete={openDelete}
+                  onJumpToMessage={jumpToMessage}
+                  onContextMenu={openCtxMenu}
+                />
+              )}
+            </For>
+          </Show>
         </div>
       </div>
 
-      <Show when={!atBottom()}>
-        <button
-          type="button"
-          onClick={() => scrollToBottom(true)}
-          class="absolute right-4 sm:right-6 bottom-20 sm:bottom-24 z-10 flex items-center gap-2 px-3 py-2 rounded-full bg-white dark:bg-[#1a1816] border border-stone-200 dark:border-stone-800 shadow-lg shadow-black/15 text-stone-600 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 animate-fade-in"
-          title={t('app-jump-to-present')}
-        >
-          <i class="fa-solid fa-arrow-down text-xs" />
-          <Show when={unread() > 0}>
-            <span class="text-xs font-medium px-1.5 py-0.5 rounded-full bg-[#f7e26c] text-stone-900 min-w-5 text-center">
-              {unread() > 99 ? '99+' : unread()}
-            </span>
-          </Show>
-        </button>
-      </Show>
+      <JumpToBottomButton
+        visible={() => !atBottom()}
+        unread={unread}
+        onClick={() => scrollToBottom(true)}
+      />
 
-      <Show when={typingText()}>
-        <div class="px-4 sm:px-6 pt-1 pb-0.5 text-xs text-stone-500 italic font-display flex items-center gap-2">
-          <span class="inline-flex gap-0.5">
-            <span class="typing-dot" />
-            <span class="typing-dot" />
-            <span class="typing-dot" />
-          </span>
-          <span>{typingText()}…</span>
-        </div>
-      </Show>
+      <TypingIndicator text={typingText} />
 
-      <Show when={(channel()?.rateLimitPerUser ?? 0) > 0}>
-        <div class="px-4 sm:px-6 pt-1 pb-0.5 flex items-center gap-1.5 text-xs text-stone-500">
-          <i
-            class="fa-solid fa-stopwatch text-[#a37b00] dark:text-[#f7e26c]"
-            classList={{ 'animate-pulse': cooldown() > 0 }}
-          />
-          <span
-            class="tabular-nums font-mono opacity-60"
-            classList={{ 'line-through': isOwner() }}
-            title={isOwner() ? t('slowmode-bypassed') : undefined}
-          >
-            {formatCooldown(channel()!.rateLimitPerUser!)}
-          </span>
-          <Show when={!isOwner()}>
-            <span
-              class="tabular-nums font-mono text-stone-700 dark:text-stone-200 transition-opacity duration-200"
-              classList={{ 'opacity-100': cooldown() > 0, 'opacity-0': cooldown() === 0 }}
-            >
-              · {t('slowmode-left', { time: formatCooldown(Math.max(cooldown(), 1)) })}
-            </span>
-          </Show>
-        </div>
-      </Show>
+      <SlowmodeIndicator channel={channel} cooldown={cooldown} isOwner={isOwner} />
 
       <Show when={sendError()}>
         <div class="px-4 sm:px-6 py-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
@@ -914,242 +569,38 @@ function ChannelView() {
         </div>
       </Show>
 
-      <form onSubmit={onSend} class="px-3 sm:px-6 pb-3 sm:pb-5 pt-2 shrink-0">
-        <Show when={replyingTo()}>
-          {(r) => {
-            const refUser = () => getUser(r().authorId);
-            const refName = () =>
-              r().author?.member?.nickname ??
-              refUser()?.username ??
-              r().author?.username ??
-              '?';
-            return (
-              <div class="flex items-center gap-2 px-3 py-1.5 -mb-1 rounded-t-2xl bg-[#fdfaf3] dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 text-xs text-stone-500 dark:text-stone-400">
-                <i class="fa-solid fa-reply text-[#a37b00] dark:text-[#f7e26c]" />
-                <span class="truncate">
-                  {t('reply-to', { name: refName() })}
-                  <span class="opacity-70"> · {r().content}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={cancelReply}
-                  class="ml-auto w-6 h-6 flex items-center justify-center rounded-md hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-500 hover:text-stone-800 dark:hover:text-stone-100 shrink-0"
-                  title={t('reply-cancel')}
-                  aria-label={t('reply-cancel')}
-                >
-                  <i class="fa-solid fa-xmark text-xs" />
-                </button>
-              </div>
-            );
-          }}
-        </Show>
-        <div
-          class="flex items-stretch gap-2 bg-[#fdfaf3] dark:bg-stone-900 px-3 py-2 focus-within:bg-white dark:focus-within:bg-stone-800 transition-colors shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] focus-within:shadow-[inset_0_0_0_1.5px_#f7e26c]"
-          classList={{
-            'rounded-2xl': !replyingTo(),
-            'rounded-b-2xl': !!replyingTo(),
-          }}
-        >
-          <button
-            type="button"
-            class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 self-start mt-2"
-            title={t('composer-attach')}
-          >
-            <i class="fa-solid fa-paperclip" />
-          </button>
-          <textarea
-            ref={composerEl}
-            placeholder={t('composer-placeholder', { name: channel()?.name ?? '' })}
-            value={draft()}
-            rows={1}
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = 'auto';
-              el.style.height = Math.min(200, el.scrollHeight) + 'px';
-              onDraftInput(el.value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onSend(e);
-              }
-              if (e.key === 'Escape' && replyingTo() && !draft()) {
-                e.preventDefault();
-                cancelReply();
-              }
-            }}
-            class="flex-1 bg-transparent outline-none text-sm placeholder:text-stone-400 placeholder:italic placeholder:font-display resize-none py-2 leading-relaxed"
-          />
-          <button
-            type="button"
-            class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 px-2 self-start mt-2"
-            title={t('composer-emoji')}
-          >
-            <i class="fa-regular fa-face-smile" />
-          </button>
-          <button
-            type="submit"
-            class="self-end w-9 h-9 rounded-xl bg-[#f7e26c] text-stone-900 hover:shadow-md hover:shadow-[#f7e26c]/40 transition-shadow disabled:opacity-50 disabled:hover:shadow-none flex items-center justify-center shrink-0"
-            disabled={!draft().trim() || sending() || cooldown() > 0}
-            title={
-              cooldown() > 0
-                ? t('slowmode-left', { time: formatCooldown(cooldown()) })
-                : t('composer-send')
-            }
-          >
-            <i
-              class={
-                cooldown() > 0
-                  ? 'fa-solid fa-stopwatch text-xs'
-                  : sending()
-                    ? 'fa-solid fa-spinner fa-spin text-xs'
-                    : 'fa-solid fa-paper-plane text-xs'
-              }
-            />
-          </button>
-        </div>
-      </form>
+      <MessageComposer
+        channel={channel}
+        draft={draft}
+        onDraftInput={onDraftInput}
+        onSend={onSend}
+        sending={sending}
+        cooldown={cooldown}
+        replyingTo={replyingTo}
+        onCancelReply={cancelReply}
+        composerRef={(el) => (composerEl = el)}
+      />
 
-      <Show when={ctxMenu()}>
-        {(menu) => (
-          <Portal>
-          <div
-            ref={ctxMenuEl}
-            class={`fixed z-50 w-52 rounded-xl bg-white dark:bg-[#1a1816] border border-stone-200 dark:border-stone-800 shadow-xl shadow-black/15 p-1 ${
-              ctxClosing() ? 'animate-popover-out' : 'animate-popover-in'
-            }`}
-            style={{
-              left: `${menu().x}px`,
-              top: `${menu().y}px`,
-              'transform-origin': 'top left',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                const target = messages().find((x) => x.id === menu().messageId);
-                closeCtxMenu();
-                if (target) startReply(target);
-              }}
-              class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-stone-100 dark:hover:bg-stone-800/60 text-left text-stone-700 dark:text-stone-200"
-            >
-              <i class="fa-solid fa-reply text-xs w-4 text-stone-500" />
-              <span>{t('context-reply')}</span>
-            </button>
-            <div class="my-1 h-px bg-stone-100 dark:bg-stone-800" />
-            <button
-              type="button"
-              onClick={() => {
-                copyToClipboard(menu().content);
-                closeCtxMenu();
-              }}
-              class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-stone-100 dark:hover:bg-stone-800/60 text-left text-stone-700 dark:text-stone-200"
-            >
-              <i class="fa-regular fa-copy text-xs w-4 text-stone-500" />
-              <span>{t('context-copy-text')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                copyToClipboard(menu().messageId);
-                closeCtxMenu();
-              }}
-              class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-stone-100 dark:hover:bg-stone-800/60 text-left text-stone-700 dark:text-stone-200"
-            >
-              <i class="fa-solid fa-hashtag text-xs w-4 text-stone-500" />
-              <span>{t('context-copy-id')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const link = `${window.location.origin}/app/${params().serverId}/${params().channelId}/${menu().messageId}`;
-                copyToClipboard(link);
-                closeCtxMenu();
-              }}
-              class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-stone-100 dark:hover:bg-stone-800/60 text-left text-stone-700 dark:text-stone-200"
-            >
-              <i class="fa-solid fa-link text-xs w-4 text-stone-500" />
-              <span>{t('context-copy-link')}</span>
-            </button>
-            <Show when={menu().mine}>
-              <div class="my-1 h-px bg-stone-100 dark:bg-stone-800" />
-              <button
-                type="button"
-                onClick={() => {
-                  startEdit(menu().messageId, menu().content);
-                  closeCtxMenu();
-                }}
-                class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-stone-100 dark:hover:bg-stone-800/60 text-left text-stone-700 dark:text-stone-200"
-              >
-                <i class="fa-solid fa-pen text-xs w-4 text-stone-500" />
-                <span>{t('context-edit')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const id = menu().messageId;
-                  const content = menu().content;
-                  closeCtxMenu();
-                  onDelete(id, content);
-                }}
-                class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 text-left"
-              >
-                <i class="fa-solid fa-trash text-xs w-4" />
-                <span>{t('context-delete')}</span>
-              </button>
-            </Show>
-          </div>
-          </Portal>
-        )}
-      </Show>
+      <MessageContextMenu
+        menu={ctxMenu}
+        closing={ctxClosing}
+        menuRef={(el) => (ctxMenuEl = el)}
+        onReply={onReplyFromMenu}
+        onCopyText={copyToClipboard}
+        onCopyId={copyToClipboard}
+        onCopyLink={onCopyLink}
+        onEdit={startEdit}
+        onDelete={openDelete}
+        onClose={closeCtxMenu}
+      />
 
-      <Show when={deleteCandidate()}>
-        {(c) => (
-          <Portal>
-            <div
-              class={`fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm ${
-                deleteClosing() ? 'animate-fade-out' : 'animate-fade-in'
-              }`}
-              onClick={() => !deleteSubmitting() && closeDelete()}
-            />
-            <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-              <div
-                class={`pointer-events-auto w-full max-w-md rounded-3xl bg-white dark:bg-[#211e1b] shadow-2xl shadow-black/15 overflow-hidden ${
-                  deleteClosing() ? 'animate-popover-out' : 'animate-popover-in'
-                }`}
-              >
-                <div class="px-6 pt-6 pb-2">
-                  <h2 class="font-display text-2xl">{t('delete-title')}</h2>
-                  <p class="text-sm text-stone-500 italic font-display mt-1">
-                    {t('delete-sub')}
-                  </p>
-                </div>
-                <div class="mx-6 my-4 rounded-xl bg-[#fdfaf3] dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-4 py-3 text-sm text-stone-700 dark:text-stone-300 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
-                  {c().preview}
-                </div>
-                <div class="px-6 pb-6 pt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={closeDelete}
-                    disabled={deleteSubmitting()}
-                    class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 hover:border-stone-400 dark:hover:border-stone-600 hover:text-stone-900 dark:hover:text-stone-100 transition-colors disabled:opacity-60"
-                  >
-                    {t('delete-cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmDelete}
-                    disabled={deleteSubmitting()}
-                    class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
-                  >
-                    {deleteSubmitting() ? t('delete-confirming') : t('delete-confirm')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Portal>
-        )}
-      </Show>
+      <DeleteMessageDialog
+        candidate={deleteCandidate}
+        closing={deleteClosing}
+        submitting={deleteSubmitting}
+        onClose={closeDelete}
+        onConfirm={confirmDelete}
+      />
     </main>
   );
 }
