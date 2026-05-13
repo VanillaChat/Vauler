@@ -315,9 +315,9 @@ function attachHandlers(socket: WebSocket) {
 			return;
 		}
 		handleMessage(msg);
-		for (const handler of handlers) {
+		handlers.forEach((handler) => {
 			handler(msg);
-		}
+		});
 	};
 }
 

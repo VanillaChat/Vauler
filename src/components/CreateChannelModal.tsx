@@ -98,7 +98,7 @@ export function CreateChannelModal(props: {
 					</div>
 
 					<form onSubmit={onSubmit} class="p-6 space-y-3">
-						<label className="block text-xs font-display italic text-stone-500 px-1">
+						<label class="block text-xs font-display italic text-stone-500 px-1">
 							{t('channel-modal-name')}
 						</label>
 						<Input
@@ -107,11 +107,11 @@ export function CreateChannelModal(props: {
 							required
 							maxLength={100}
 							value={name()}
-							leftIcon={<i className="fa-solid fa-hashtag" />}
+							leftIcon={<i class="fa-solid fa-hashtag" />}
 							onInput={(e) => setName(e.currentTarget.value.toLowerCase().replace(/\s+/g, '-'))}
 						/>
 
-						<label className="block text-xs font-display italic text-stone-500 px-1 pt-2">
+						<label class="block text-xs font-display italic text-stone-500 px-1 pt-2">
 							{t('channel-modal-type')}
 						</label>
 						<Select
@@ -120,7 +120,7 @@ export function CreateChannelModal(props: {
 							onChange={setChannelType}
 							leftIcon={
 								<i
-									className={`fa-solid ${
+									class={`fa-solid ${
 										channelType() === 'VOICE' ? 'fa-volume-high' : 'fa-hashtag'
 									} text-stone-400 text-xs`}
 								/>

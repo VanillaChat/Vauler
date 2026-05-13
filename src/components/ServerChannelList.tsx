@@ -153,7 +153,7 @@ export function ServerChannelList(props: Props) {
 														}}
 													>
 														<i
-															className={`fa-solid ${channelIcon()} text-xs opacity-70 shrink-0 w-3 text-center`}
+															class={`fa-solid ${channelIcon()} text-xs opacity-70 shrink-0 w-3 text-center`}
 														/>
 														<span class="truncate">{c.name}</span>
 													</Link>
