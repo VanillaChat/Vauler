@@ -3,6 +3,7 @@ import { ApiError } from '../../api/client';
 import { setVoiceChannelState } from '../../api/gateway';
 import { fetchVoiceState, joinVoice, leaveVoice } from '../../api/voice';
 import { currentUser, getUser, useVoiceParticipants } from '../../state/gateway-data';
+import { t } from "../../i18n"
 
 export function VoiceChannelView(props: { channelId: string; channelName: string }) {
 	const [loading, setLoading] = createSignal(false);
@@ -48,7 +49,7 @@ export function VoiceChannelView(props: { channelId: string; channelName: string
 					? err.message
 					: err instanceof Error
 						? err.message
-						: 'Failed to update voice state',
+						: t('voice-update-failed'),
 			);
 		} finally {
 			setLoading(false);
@@ -63,7 +64,10 @@ export function VoiceChannelView(props: { channelId: string; channelName: string
 				</div>
 
 				<h2 class="font-display text-3xl mt-5">{props.channelName}</h2>
-				<p class="text-sm text-stone-500 italic font-display mt-1">Voice channel</p>
+				<p class="text-sm text-stone-500 italic font-display mt-1 flex flex-row gap-2 justify-center">
+					{t('voice-channel-type')}
+					<span class="bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300">BETA</span>
+				</p>
 
 				<button
 					type="button"
@@ -76,7 +80,7 @@ export function VoiceChannelView(props: { channelId: string; channelName: string
 							loading() ? 'fa-spinner fa-spin' : joined() ? 'fa-phone-slash' : 'fa-phone'
 						} mr-2`}
 					/>
-					{joined() ? 'Leave voice' : 'Join voice'}
+					{joined() ? t('voice-leave') : t('voice-join')}
 				</button>
 
 				<Show when={error()}>
@@ -84,12 +88,12 @@ export function VoiceChannelView(props: { channelId: string; channelName: string
 				</Show>
 
 				<div class="mt-6 rounded-2xl bg-white dark:bg-[#211e1b] border border-stone-100 dark:border-stone-800 p-4 text-left">
-					<div class="text-xs font-display italic text-stone-500 mb-3">Connected users</div>
+					<div class="text-xs font-display italic text-stone-500 mb-3">{t('voice-connected-users')}</div>
 
 					<Show
 						when={participants().length > 0}
 						fallback={
-							<div class="text-sm text-stone-400 italic font-display">Nobody is connected yet.</div>
+							<div class="text-sm text-stone-400 italic font-display">{t('voice-nobody-connected')}</div>
 						}
 					>
 						<For each={participants()}>

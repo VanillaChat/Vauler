@@ -3,14 +3,15 @@ import { TanStackRouterDevtools } from '@tanstack/solid-router-devtools';
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { logout, type Session } from '../api/auth';
 import { refetchSession, session } from '../state/session';
+import { t } from '../i18n';
 
 export const Route = createRootRoute({
 	component: RootComponent,
 	notFoundComponent: () => {
 		return (
 			<div>
-				<p>This is the notFoundComponent configured on root route</p>
-				<Link to="/">Start Over</Link>
+				<p>{t('nav-not-found')}</p>
+				<Link to="/">{t('nav-start-over')}</Link>
 			</div>
 		);
 	},
@@ -62,13 +63,13 @@ function RootComponent() {
 										to="/login"
 										class="px-3 py-1.5 rounded-md text-sm transition-colors hover:bg-stone-900/5 dark:hover:bg-white/5"
 									>
-										Login
+										{t('nav-login')}
 									</Link>
 									<Link
 										to="/register"
 										class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-900 bg-[#f7e26c] hover:opacity-90 transition-opacity"
 									>
-										Register
+										{t('nav-register')}
 									</Link>
 								</>
 							}
@@ -171,7 +172,7 @@ function SessionMenu(props: { session: Session; onLogout: () => void }) {
 						class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-stone-900/5 dark:hover:bg-white/5 transition-colors"
 					>
 						<i class="fa-solid fa-arrow-right-to-bracket w-4 text-stone-500" />
-						Open Vanilla
+						{t('home-cta-open')}
 					</button>
 					<button
 						type="button"
@@ -181,7 +182,7 @@ function SessionMenu(props: { session: Session; onLogout: () => void }) {
 						class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-60"
 					>
 						<i class="fa-solid fa-right-from-bracket w-4" />
-						{busy() ? 'Logging out…' : 'Logout'}
+						{busy() ? t('settings-logging-out') : t('settings-logout')}
 					</button>
 				</div>
 			</Show>

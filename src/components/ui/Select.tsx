@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, type JSX, onCleanup, Show } from 'soli
 import { Portal } from 'solid-js/web';
 import { inputBaseClass } from './Input';
 
-export type SelectOption<T> = { value: T; label: string };
+export type SelectOption<T> = { value: T; label: string; beta?: boolean };
 
 export type SelectProps<T> = {
 	options: SelectOption<T>[];
@@ -108,13 +108,18 @@ export function Select<T>(props: SelectProps<T>) {
 											props.onChange(opt.value);
 											setOpen(false);
 										}}
-										class={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left ${
+										class={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left justify-between ${
 											selected()
 												? 'bg-[#f7e26c]/40 text-stone-900 dark:text-stone-100'
 												: 'hover:bg-stone-100 dark:hover:bg-stone-800/60 text-stone-700 dark:text-stone-200'
 										}`}
 									>
-										<span class="flex-1">{opt.label}</span>
+										<div class="flex flex-row gap-2 items-center">
+											<span class="flex-1">{opt.label}</span>
+											<Show when={opt.beta}>
+												<span class="bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300">BETA</span>
+											</Show>
+										</div>
 										<Show when={selected()}>
 											<i class="fa-solid fa-check text-xs text-stone-600 dark:text-stone-300" />
 										</Show>

@@ -98,19 +98,19 @@ function ChatPreview() {
 		{
 			name: 'mira',
 			tone: 'bg-rose-200 text-rose-900',
-			text: 'pulling up a fire later, who in',
+			text: t('home-preview-msg-1'),
 			t: '7:42',
 		},
 		{
 			name: 'ash',
 			tone: 'bg-emerald-200 text-emerald-900',
-			text: 'me. bringing the playlist',
+			text: t('home-preview-msg-2'),
 			t: '7:43',
 		},
 		{
 			name: 'jun',
 			tone: 'bg-sky-200 text-sky-900',
-			text: 'i made cookies. that counts as joining',
+			text: t('home-preview-msg-3'),
 			t: '7:44',
 		},
 	];
@@ -129,9 +129,11 @@ function ChatPreview() {
 						<span class="w-2.5 h-2.5 rounded-full bg-emerald-300" />
 					</div>
 					<span class="text-xs font-mono text-stone-500 dark:text-stone-400">
-						# the-living-room
+						# {t('home-preview-channel')}
 					</span>
-					<span class="text-xs text-stone-400 dark:text-stone-500">3 online</span>
+					<span class="text-xs text-stone-400 dark:text-stone-500">
+						{t('home-preview-online', { count: 3 })}
+					</span>
 				</div>
 
 				<div class="p-5 space-y-4">
@@ -158,13 +160,13 @@ function ChatPreview() {
 						<span class="typing-dot" />
 						<span class="typing-dot" />
 						<span class="typing-dot" />
-						<span class="ml-1">someone is typing…</span>
+						<span class="ml-1">{t('home-preview-typing')}</span>
 					</div>
 				</div>
 
 				<div class="px-5 py-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/40">
 					<div class="flex items-center gap-2 rounded-full bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 px-4 py-2 text-sm text-stone-400">
-						message #the-living-room…
+						{t('home-preview-input', { channel: t('home-preview-channel') })}
 					</div>
 				</div>
 			</div>
@@ -339,20 +341,20 @@ function Footer() {
 							'-webkit-mask': 'url(/VanillaLogo.svg) left center / contain no-repeat',
 						}}
 					/>
-					<span class="opacity-60">· cozy chat</span>
+					<span class="opacity-60">· {t('home-tagline')}</span>
 				</div>
 				<div class="flex items-center gap-5">
 					<Link
 						to="/login"
 						class="hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
 					>
-						sign in
+						{t('footer-sign-in')}
 					</Link>
 					<Link
 						to="/register"
 						class="hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
 					>
-						register
+						{t('footer-register')}
 					</Link>
 				</div>
 			</div>

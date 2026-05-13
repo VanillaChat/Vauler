@@ -31,12 +31,32 @@ home-final-headline = Pull up a chair.
 home-final-sub = Make an account in under a minute. Bring your friends. Stay as long as you like.
 home-final-cta = Create your account
 
+# home — chat preview demo
+home-preview-channel = the-living-room
+home-preview-msg-1 = pulling up a fire later, who in
+home-preview-msg-2 = me. bringing the playlist
+home-preview-msg-3 = i made cookies. that counts as joining
+home-preview-online = { $count } online
+home-preview-typing = someone is typing…
+home-preview-input = message #{ $channel }…
+
+# home — footer
+home-tagline = cozy chat
+footer-sign-in = sign in
+footer-register = register
+
 # open source
 home-oss-eyebrow = Open Source
 home-oss-title = Read the code. Bend it. Send a patch.
 home-oss-body = Vanilla is built in the open. Every line of the app lives on GitHub — fork it, file an issue, or just lurk.
 home-oss-cta = View on GitHub
 home-oss-meta = AGPL-3.0 licensed · Contributions welcome
+
+# top nav
+nav-login = Login
+nav-register = Register
+nav-not-found = Page not found.
+nav-start-over = Start over
 
 # auth — common
 auth-email = Email
@@ -91,6 +111,7 @@ app-pick-server = Pick a server
 app-pick-server-sub = Choose one from the rail to get started.
 app-pick-channel = Pick a channel from the sidebar.
 app-channel-not-found = Channel not found
+app-unknown-server = Unknown server
 app-no-channels = No channels yet
 app-empty-channel = Quiet in here. Say something?
 app-no-messages-loading = Loading…
@@ -191,6 +212,7 @@ invite-copy = Copy
 invite-copied = Copied
 invite-button = Invite
 invite-failed = Failed to generate
+invite-dismiss = Dismiss
 
 # channel modal
 channel-modal-title = New Channel
@@ -273,3 +295,10 @@ app-show-sidebar = Show sidebar
 app-hide-sidebar = Hide sidebar
 app-show-members = Show members
 app-hide-members = Hide members
+
+voice-nobody-connected = Nobody is connected yet.
+voice-channel-type = Voice Channel
+voice-connected-users = Connected Users
+voice-join = Join Voice
+voice-leave = Leave Voice
+voice-update-failed = Failed to update voice state

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/solid-router';
 import { createSignal, Show } from 'solid-js';
 import { register } from '../api/auth';
 import { ApiError } from '../api/client';
+import { t } from '../i18n';
 
 export const Route = createFileRoute('/register')({
 	component: RegisterPage,
@@ -22,7 +23,7 @@ function RegisterPage() {
 		setError(null);
 
 		if (password() !== confirmPassword()) {
-			setError("Passwords don't match");
+			setError(t('auth-error-password-mismatch'));
 			return;
 		}
 
@@ -42,7 +43,7 @@ function RegisterPage() {
 					? err.message
 					: err instanceof Error
 						? err.message
-						: 'Registration failed';
+						: t('register-error-default');
 			setError(msg);
 		} finally {
 			setSubmitting(false);
@@ -60,28 +61,26 @@ function RegisterPage() {
 						<img src="/VanillaLogo.svg" alt="" class="w-64 mb-8 rounded-lg text-[#2b1d12]" />
 					</div>
 					<h1 class="font-display text-5xl lg:text-[3.75rem] tracking-tight leading-[1.05] mb-6">
-						Where simplicity and privacy meet.
+						{t('register-headline')}
 					</h1>
-					<p class="font-sans text-lg leading-relaxed opacity-80">
-						Group chats without the noise. Voice that just works.
-					</p>
+					<p class="font-sans text-lg leading-relaxed opacity-80">{t('register-sub')}</p>
 				</div>
 			</aside>
 
 			<section class="bg-[#fdfaf3] dark:bg-[#171411] px-8 lg:px-16 py-16 lg:py-24 flex items-center">
 				<div class="w-full max-w-sm mx-auto">
 					<h2 class="font-display text-4xl tracking-tight text-stone-900 dark:text-stone-100 mb-2">
-						Join Vanilla.
+						{t('register-title')}
 					</h2>
 					<p class="font-sans text-sm text-stone-500 dark:text-stone-400 mb-10">
-						Make an account to get started.
+						{t('register-subtitle')}
 					</p>
 
 					<form onSubmit={onSubmit} class="space-y-4">
 						<input
 							type="text"
 							required
-							placeholder="username"
+							placeholder={t('register-username')}
 							value={username()}
 							onInput={(e) => setUsername(e.currentTarget.value)}
 							class={inputClass}
@@ -89,7 +88,7 @@ function RegisterPage() {
 						<input
 							type="email"
 							required
-							placeholder="email"
+							placeholder={t('auth-email')}
 							value={email()}
 							onInput={(e) => setEmail(e.currentTarget.value)}
 							class={inputClass}
@@ -98,7 +97,7 @@ function RegisterPage() {
 							type="password"
 							required
 							minLength={8}
-							placeholder="password"
+							placeholder={t('auth-password')}
 							value={password()}
 							onInput={(e) => setPassword(e.currentTarget.value)}
 							class={inputClass}
@@ -107,14 +106,14 @@ function RegisterPage() {
 							type="password"
 							required
 							minLength={8}
-							placeholder="confirm password"
+							placeholder={t('register-confirm-password')}
 							value={confirmPassword()}
 							onInput={(e) => setConfirmPassword(e.currentTarget.value)}
 							class={inputClass}
 						/>
 						<input
 							type="text"
-							placeholder="invite code (optional)"
+							placeholder={t('register-invite-code')}
 							value={inviteCode()}
 							onInput={(e) => setInviteCode(e.currentTarget.value)}
 							class={inputClass}
@@ -129,14 +128,14 @@ function RegisterPage() {
 							disabled={submitting()}
 							class="w-full bg-vault text-stone-900 px-6 py-3 rounded-full text-sm font-medium hover:shadow-md hover:shadow-vault/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
 						>
-							{submitting() ? 'Creating…' : 'Create account'}
+							{submitting() ? t('register-submitting') : t('register-submit')}
 						</button>
 					</form>
 
 					<p class="mt-8 text-center text-sm text-stone-500 dark:text-stone-400">
-						Already have one?{' '}
+						{t('register-already')}{' '}
 						<Link to="/login" class="text-stone-900 dark:text-white underline underline-offset-4">
-							Sign in
+							{t('register-sign-in')}
 						</Link>
 					</p>
 				</div>

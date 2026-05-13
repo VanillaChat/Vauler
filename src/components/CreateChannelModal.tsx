@@ -43,7 +43,7 @@ export function CreateChannelModal(props: {
 
 	const channelTypeOptions = createMemo<SelectOption<ChannelType>[]>(() => [
 		{ value: 'TEXT', label: t('channel-modal-type-text') },
-		{ value: 'VOICE', label: t('channel-modal-type-voice') },
+		{ value: 'VOICE', label: t('channel-modal-type-voice'), beta: true },
 	]);
 
 	const onSubmit = async (e: Event) => {

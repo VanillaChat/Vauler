@@ -30,7 +30,7 @@ export function InviteBanner(props: Props) {
 							<button
 								onClick={props.onClose}
 								class="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-								title="Dismiss"
+								title={t('invite-dismiss')}
 							>
 								<i class="fa-solid fa-xmark" />
 							</button>

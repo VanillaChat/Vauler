@@ -43,22 +43,22 @@ function AppIndex() {
 			</button>
 			<Show
 				when={gatewayState() === 'ready'}
-				fallback={<div class="text-stone-400 font-display italic text-xl">connecting…</div>}
+				fallback={
+					<div class="text-stone-400 font-display italic text-xl">{t('app-connecting')}</div>
+				}
 			>
 				<Show
 					when={guilds().length > 0}
 					fallback={
 						<div class="text-center px-8">
-							<h2 class="font-display text-3xl mb-2">no servers yet</h2>
-							<p class="text-sm text-stone-500 italic font-display">join one or make your own.</p>
+							<h2 class="font-display text-3xl mb-2">{t('app-no-servers')}</h2>
+							<p class="text-sm text-stone-500 italic font-display">{t('app-no-servers-sub')}</p>
 						</div>
 					}
 				>
 					<div class="text-center px-8">
-						<h2 class="font-display text-3xl mb-2">pick a server</h2>
-						<p class="text-sm text-stone-500 italic font-display">
-							choose one from the rail to get started.
-						</p>
+						<h2 class="font-display text-3xl mb-2">{t('app-pick-server')}</h2>
+						<p class="text-sm text-stone-500 italic font-display">{t('app-pick-server-sub')}</p>
 					</div>
 				</Show>
 			</Show>

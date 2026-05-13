@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/solid-router';
 import { Show } from 'solid-js';
 import { useLayout } from '../contexts/layout';
+import { t } from '../i18n';
 import { useGuild } from '../state/gateway-data';
 
 export const Route = createFileRoute('/app/$serverId/')({
@@ -17,11 +18,11 @@ function ServerIndex() {
 			style={layout.contentStyle()}
 		>
 			<div class="text-center px-8">
-				<h2 class="font-display text-3xl mb-2">{guild()?.name ?? 'unknown server'}</h2>
+				<h2 class="font-display text-3xl mb-2">{guild()?.name ?? t('app-unknown-server')}</h2>
 				<Show when={guild()?.brief}>
 					<p class="text-sm text-stone-500 italic font-display mb-4">{guild()?.brief}</p>
 				</Show>
-				<p class="text-sm text-stone-500 italic font-display">pick a channel from the sidebar.</p>
+				<p class="text-sm text-stone-500 italic font-display">{t('app-pick-channel')}</p>
 			</div>
 		</main>
 	);
