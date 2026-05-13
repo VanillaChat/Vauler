@@ -202,6 +202,9 @@ channel-modal-slowmode-hint = Per-user message cooldown
 channel-modal-create = Create
 channel-modal-cancel = Cancel
 channel-modal-failed = Failed
+channel-modal-type = Channel type
+channel-modal-type-text = Text
+channel-modal-type-voice = Voice
 
 # slowmode option labels
 slowmode-off = Off
