@@ -53,6 +53,8 @@ export function joinVoice(
 export function leaveVoice(channelId: string): Promise<VoiceChannelState> {
 	return api<VoiceChannelState>(`/channels/${channelId}/voice/leave`, {
 		method: 'POST',
-		clientSessionId: getClientSessionId(),
+		json: {
+			clientSessionId: getClientSessionId(),
+		},
 	});
 }
