@@ -27,6 +27,7 @@ export const availableLocales = (): string[] => Array.from(bundles.keys());
 
 export function t(id: string, args?: Record<string, FluentVariable>): string {
 	const b = bundles.get(locale()) ?? bundles.get('en');
+	const msg = b.getMessage(id);
 	if (!b) return id;
 	if (!msg?.value) return id;
 	return b.formatPattern(msg.value, args, []);
